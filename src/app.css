@@ -1,0 +1,106 @@
+/* Всё изолировано внутри #tv: страница может быть вставлена в чужую вёрстку. */
+#tv {
+  --tv-bg: #ffffff; --tv-fg: #1b1d21; --tv-muted: #6b7280; --tv-line: #e3e6ea;
+  --tv-accent: #e8522b; --tv-side: 380px;
+  position: relative; display: flex; overflow: hidden;
+  height: 82vh; min-height: 460px;
+  font: 14px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  color: var(--tv-fg); background: var(--tv-bg);
+  border: 1px solid var(--tv-line); border-radius: 10px;
+}
+#tv.tv-full { height: 100vh; min-height: 0; border: none; border-radius: 0; }
+#tv *, #tv *::before, #tv *::after { box-sizing: border-box; }
+
+#tv-sidebar {
+  width: var(--tv-side); min-width: var(--tv-side); height: 100%;
+  display: flex; flex-direction: column; border-right: 1px solid var(--tv-line);
+}
+#tv-map { flex: 1; height: 100%; }
+#tv header { padding: 10px 12px 8px; border-bottom: 1px solid var(--tv-line); }
+#tv h1 { font-size: 15px; margin: 0 0 2px; }
+#tv .sub { color: var(--tv-muted); font-size: 12px; }
+#tv .controls { padding: 8px 12px; border-bottom: 1px solid var(--tv-line); }
+#tv .row { display: flex; gap: 6px; align-items: center; margin-bottom: 6px; }
+#tv input[type=text], #tv input[type=number], #tv select {
+  font: inherit; padding: 5px 7px; border: 1px solid var(--tv-line);
+  border-radius: 6px; background: #fff; color: inherit; min-width: 0;
+}
+#tv input[type=text] { flex: 1; }
+#tv input[type=number] { width: 68px; }
+#tv label.lbl { color: var(--tv-muted); font-size: 12px; white-space: nowrap; }
+#tv .chips {
+  display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px;
+  max-height: 116px; overflow-y: auto; padding-bottom: 2px;
+}
+#tv .chip {
+  font-size: 11px; padding: 3px 7px; border-radius: 11px; cursor: pointer;
+  border: 1px solid var(--tv-line); background: #f7f8fa; user-select: none;
+}
+#tv .chip.on { background: var(--tv-accent); border-color: var(--tv-accent); color: #fff; }
+#tv .chip .dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; margin-right: 4px; }
+#tv button {
+  font: inherit; font-size: 12px; padding: 5px 9px; border: 1px solid var(--tv-line);
+  background: #f7f8fa; border-radius: 6px; cursor: pointer; color: inherit;
+}
+#tv button:hover { background: #eef0f3; }
+#tv .tabs { display: flex; gap: 4px; padding: 8px 12px 0; }
+#tv .tab { font-size: 12px; padding: 5px 9px; border-radius: 6px 6px 0 0; cursor: pointer; color: var(--tv-muted); }
+#tv .tab.on {
+  color: var(--tv-fg); font-weight: 600; border: 1px solid var(--tv-line);
+  border-bottom-color: #fff; margin-bottom: -1px; background: #fff;
+}
+#tv-list { flex: 1; overflow-y: auto; border-top: 1px solid var(--tv-line); }
+#tv .item { padding: 7px 12px; border-bottom: 1px solid #f0f2f4; cursor: pointer; }
+#tv .item:hover { background: #f7f8fa; }
+#tv .item.sel { background: #fdece7; }
+#tv .item .t { font-weight: 500; }
+#tv .item .m { color: var(--tv-muted); font-size: 12px; display: flex; gap: 8px; flex-wrap: wrap; }
+#tv .swatch { width: 3px; border-radius: 2px; background: #999; align-self: stretch; }
+#tv .item-inner { display: flex; gap: 8px; }
+#tv-more { padding: 10px; text-align: center; }
+#tv-detail {
+  position: absolute; right: 12px; top: 12px; width: 340px; max-height: calc(100% - 24px);
+  overflow-y: auto; background: #fff; border: 1px solid var(--tv-line); border-radius: 10px;
+  box-shadow: 0 6px 24px rgba(0,0,0,.14); padding: 12px 14px; z-index: 1000; display: none;
+}
+#tv-detail h2 { font-size: 15px; margin: 0 8px 4px 0; }
+#tv-detail .close {
+  position: absolute; right: 8px; top: 6px; cursor: pointer;
+  color: var(--tv-muted); font-size: 18px; line-height: 1;
+}
+#tv-detail .desc { white-space: pre-wrap; margin: 8px 0; max-height: 220px; overflow-y: auto; font-size: 13px; }
+#tv-detail a { color: var(--tv-accent); }
+#tv .kv { color: var(--tv-muted); font-size: 12px; }
+#tv .links { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+#tv .links a { text-decoration: none; border: 1px solid var(--tv-line); padding: 4px 8px; border-radius: 6px; }
+#tv .hint { color: var(--tv-muted); font-size: 12px; padding: 10px 12px; }
+
+/* форма пароля */
+#tv-gate {
+  position: absolute; inset: 0; z-index: 5000; display: flex;
+  align-items: center; justify-content: center; background: #f4f5f7;
+}
+#tv-gate .box {
+  background: #fff; border: 1px solid var(--tv-line); border-radius: 12px;
+  padding: 22px 24px; width: 320px; max-width: 90%; box-shadow: 0 10px 40px rgba(0,0,0,.12);
+}
+#tv-gate h2 { font-size: 16px; margin: 0 0 4px; }
+#tv-gate p { color: var(--tv-muted); font-size: 12px; margin: 0 0 14px; }
+#tv-gate input[type=password] {
+  width: 100%; font: inherit; font-size: 15px; padding: 8px 10px;
+  border: 1px solid var(--tv-line); border-radius: 6px;
+}
+#tv-gate .row2 { display: flex; align-items: center; gap: 8px; margin-top: 10px; font-size: 12px; color: var(--tv-muted); }
+#tv-gate button { width: 100%; margin-top: 12px; padding: 8px; font-size: 14px; }
+#tv-gate .status { margin-top: 10px; font-size: 12px; color: var(--tv-muted); min-height: 16px; }
+#tv-gate .status.err { color: #c0392b; }
+
+@media (max-width: 720px) {
+  #tv { flex-direction: column; }
+  #tv-sidebar {
+    width: 100%; min-width: 0; height: 50%;
+    border-right: none; border-bottom: 1px solid var(--tv-line);
+  }
+  #tv-map { height: 50%; }
+  #tv-detail { width: auto; left: 12px; }
+}

@@ -1,0 +1,54 @@
+# track-vault
+
+Map viewer for an encrypted data file. The data lives outside this repo; the page
+downloads it, asks for a password and decrypts it in the browser. The server never
+sees the password and this repo never holds the data.
+
+## Build
+
+```sh
+make build-prod          # -> dist/index.html  (fetches the URL from src/config.json)
+make serve               # same, plus http://localhost:8080
+```
+
+`dist/` is what gets published. Nothing else is needed at runtime except a browser.
+
+## Local preview with a plain file
+
+```sh
+make build-local DATA=/path/to/tracks.js
+```
+
+Builds a page without the password form that reads `tracks.js` sitting next to it.
+
+## Configuration
+
+`src/config.json`:
+
+* `data_url` — where the encrypted file is downloaded from. Must be served with a
+  permissive CORS header; a Dropbox share link works if the host is
+  `dl.dropboxusercontent.com` (`www.dropbox.com` does not).
+* `title` — page title.
+
+## Updating the data
+
+Data is produced elsewhere. The routine is:
+
+```sh
+make update                                  # in the data repo: refresh + rebuild
+make encrypt URL="<link to the file>"        # -> dist/velo.enc
+```
+
+then upload the resulting file to the same place. If the link changed, update
+`data_url` here and rebuild.
+
+## Layout
+
+```
+src/template.html   page skeleton
+src/markup.html     app markup
+src/app.css         styles, all scoped under #tv so the page can be embedded
+src/app.js          the map itself, expects window.VELO_DATA
+src/gate.html/.js   password form, download, decryption (PBKDF2 + AES-GCM)
+build.py            assembles everything into a single self-contained file
+```

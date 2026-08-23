@@ -1,0 +1,4 @@
+dist/
+tracks.js
+*.enc
+.DS_Store
