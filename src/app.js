@@ -56,7 +56,11 @@ function routeColor(route) {
 }
 
 /* ---------- map ---------- */
-const map = L.map('tv-map', { preferCanvas: true, center: [55.75, 37.62], zoom: 8 });
+const coarsePointer = window.matchMedia && window.matchMedia('(pointer: coarse)').matches;
+const trackRenderer = L.canvas({ tolerance: coarsePointer ? 16 : 5 });
+const map = L.map('tv-map', {
+  preferCanvas: true, renderer: trackRenderer, center: [55.75, 37.62], zoom: 8,
+});
 const base = {
   'OSM': L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',
     { maxZoom: 19, attribution: '© OpenStreetMap' }),
@@ -300,14 +304,29 @@ chipWrap.querySelectorAll('.chip').forEach(el => {
     const s = el.dataset.side;
     if (activeSides.has(s)) { activeSides.delete(s); el.classList.remove('on'); }
     else { activeSides.add(s); el.classList.add('on'); }
+    updateSidesButton();
     applyFilters();
   };
 });
+
+/* the panel eats a lot of room, so it starts collapsed; the button keeps
+   showing how many sides are picked while it is out of sight */
+const sidesToggle = document.getElementById('tv-sidesToggle');
+function updateSidesButton() {
+  sidesToggle.textContent = activeSides.size ? `sides (${activeSides.size})` : 'sides';
+  sidesToggle.classList.toggle('on', activeSides.size > 0);
+}
+sidesToggle.onclick = () => {
+  const hidden = chipWrap.classList.toggle('tv-hidden');
+  sidesToggle.setAttribute('aria-expanded', String(!hidden));
+};
+updateSidesButton();
 [q, dmin, dmax, ymin, ymax].forEach(el => el.addEventListener('input', () => { listLimit = 200; applyFilters(); }));
 colorBySel.addEventListener('change', () => { redraw(true); renderList(); });
 document.getElementById('tv-clear').onclick = () => {
   q.value = dmin.value = dmax.value = ymin.value = ymax.value = '';
   activeSides.clear(); chipWrap.querySelectorAll('.chip').forEach(c => c.classList.remove('on'));
+  updateSidesButton();
   onlyViewport = false; document.getElementById('tv-viewport').classList.remove('on');
   listLimit = 200; applyFilters();
 };

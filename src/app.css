@@ -38,7 +38,7 @@
 #tv h1 { font-size: 15px; margin: 0 0 2px; }
 #tv .sub { color: var(--tv-muted); font-size: 12px; }
 #tv .controls { padding: 8px 12px; border-bottom: 1px solid var(--tv-line); }
-#tv .row { display: flex; gap: 6px; align-items: center; margin-bottom: 6px; }
+#tv .row { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-bottom: 6px; }
 #tv input[type=text], #tv input[type=number], #tv select {
   font: inherit; padding: 5px 7px; border: 1px solid var(--tv-line);
   border-radius: 6px; background: #fff; color: inherit; min-width: 0;
@@ -50,6 +50,8 @@
   display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px;
   max-height: 116px; overflow-y: auto; padding-bottom: 2px;
 }
+#tv .chips.tv-hidden { display: none; }
+#tv button.on { background: var(--tv-accent); border-color: var(--tv-accent); color: #fff; }
 #tv .chip {
   font-size: 11px; padding: 3px 7px; border-radius: 11px; cursor: pointer;
   border: 1px solid var(--tv-line); background: #f7f8fa; user-select: none;
