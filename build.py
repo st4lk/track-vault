@@ -13,9 +13,9 @@ ROOT = Path(__file__).resolve().parent
 SRC = ROOT / 'src'
 
 
-def build(mode, out_dir, title=None, data_url=None, full=False):
+def build(mode, out_dir, title=None, data_url=None, full=False, fragment=False, name='index.html'):
     config = json.loads((SRC / 'config.json').read_text())
-    page = (SRC / 'template.html').read_text()
+    page = (SRC / ('fragment.html' if fragment else 'template.html')).read_text()
     page = page.replace('__TITLE__', title or config.get('title', 'Track Vault'))
     page = page.replace('__STYLES__', (SRC / 'app.css').read_text().rstrip())
     page = page.replace('__MARKUP__', (SRC / 'markup.html').read_text().rstrip())
@@ -34,9 +34,12 @@ def build(mode, out_dir, title=None, data_url=None, full=False):
         page = page.replace('__LOADER__',
                             '<script src="tracks.js"></script>\n<script>window.__bootMap();</script>')
 
+    if fragment:
+        # kramdown ставит <p> вокруг одиноких строк, поэтому лишних пустых строк быть не должно
+        page = '\n'.join(line for line in page.splitlines() if line.strip())
     out_dir.mkdir(parents=True, exist_ok=True)
-    (out_dir / 'index.html').write_text(page)
-    return out_dir / 'index.html'
+    (out_dir / name).write_text(page)
+    return out_dir / name
 
 
 def main():
@@ -49,13 +52,17 @@ def main():
     parser.add_argument('--data-file', type=Path, help='local: положить рядом этот tracks.js')
     parser.add_argument('--full', action='store_true',
                         help='карта на весь экран (для отдельной страницы, не для вставки)')
+    parser.add_argument('--standalone', action='store_true',
+                        help='prod: собрать полноценную страницу, а не фрагмент для вставки')
     args = parser.parse_args()
 
-    path = build(args.mode, args.out, args.title, args.data_url, full=args.full)
+    fragment = args.mode == 'prod' and not args.standalone
+    path = build(args.mode, args.out, args.title, args.data_url, full=args.full, fragment=fragment)
     if args.data_file and args.data_file.resolve() != (args.out / 'tracks.js').resolve():
         shutil.copy2(args.data_file, args.out / 'tracks.js')
     size = path.stat().st_size / 1024
-    print(f'{path} ({size:.0f} КБ, режим {args.mode})')
+    kind = 'фрагмент для вставки' if fragment else 'отдельная страница'
+    print(f'{path} ({size:.0f} КБ, режим {args.mode}, {kind})')
 
 
 if __name__ == '__main__':

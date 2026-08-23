@@ -328,8 +328,49 @@ document.querySelectorAll('.tab').forEach(el => {
   };
 });
 
+/* ---------- на весь экран ----------
+   Карта раскрывается поверх страницы (position: fixed) — так же работает
+   и внутри чужой вёрстки. Заодно пробуем нативный полноэкранный режим,
+   чтобы спрятать и хром браузера; если браузер откажет — не страшно. */
+const shell = document.getElementById('tv');
+const fullBtn = document.getElementById('tv-fullscreen');
+
+function nativeFullscreenElement() {
+  return document.fullscreenElement || document.webkitFullscreenElement || null;
+}
+
+function setCover(on) {
+  shell.classList.toggle('tv-cover', on);
+  document.documentElement.style.overflow = on ? 'hidden' : '';
+  fullBtn.textContent = on ? '⤡' : '⛶';
+  fullBtn.title = on ? 'Свернуть (Esc)' : 'На весь экран';
+  setTimeout(() => { map.invalidateSize(); redraw(true); }, 120);
+}
+
+fullBtn.onclick = () => {
+  const on = !shell.classList.contains('tv-cover');
+  setCover(on);
+  try {
+    if (on) {
+      const request = shell.requestFullscreen || shell.webkitRequestFullscreen;
+      if (request) Promise.resolve(request.call(shell)).catch(() => {});
+    } else if (nativeFullscreenElement()) {
+      (document.exitFullscreen || document.webkitExitFullscreen).call(document);
+    }
+  } catch (err) { /* нативного режима может не быть — остаётся наш оверлей */ }
+};
+
+function onFullscreenChange() {
+  // вышли из нативного режима кнопкой браузера — сворачиваем и оверлей
+  if (!nativeFullscreenElement() && shell.classList.contains('tv-cover')) setCover(false);
+}
+document.addEventListener('fullscreenchange', onFullscreenChange);
+document.addEventListener('webkitfullscreenchange', onFullscreenChange);
+
 document.addEventListener('keydown', e => {
-  if (e.key === 'Escape' && detailEl.style.display === 'block') closeDetail();
+  if (e.key !== 'Escape') return;
+  if (detailEl.style.display === 'block') closeDetail();
+  else if (shell.classList.contains('tv-cover')) fullBtn.onclick();
 });
 
 applyFilters();
