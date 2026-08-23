@@ -34,6 +34,14 @@
   display: flex; flex-direction: column; border-right: 1px solid var(--tv-line);
 }
 #tv-map { flex: 1; height: 100%; }
+#tv.tv-collapsed #tv-sidebar { display: none; }
+/* the button lives among the leaflet controls, under the zoom buttons */
+#tv .tv-panel-toggle {
+  display: block; width: 30px; height: 30px; line-height: 30px; text-align: center;
+  background: #fff; color: #1b1d21; font-size: 16px; text-decoration: none;
+  border: 2px solid rgba(0,0,0,.2); border-radius: 4px; background-clip: padding-box;
+}
+#tv .tv-panel-toggle:hover { background: #f4f4f4; }
 #tv header { padding: 10px 12px 8px; border-bottom: 1px solid var(--tv-line); }
 #tv h1 { font-size: 15px; margin: 0 0 2px; }
 #tv .sub { color: var(--tv-muted); font-size: 12px; }

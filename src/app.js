@@ -82,6 +82,38 @@ const extraLayer = L.layerGroup();
 const highlightLayer = L.layerGroup().addTo(map);
 const drawn = new Map();      // trackId -> {layer, lod}
 
+/* ---------- the sidebar folds away, the map stays ---------- */
+const shell = document.getElementById('tv');
+const SIDEBAR_KEY = 'track-vault-sidebar';
+let sidebarOpen = false;
+try { sidebarOpen = localStorage.getItem(SIDEBAR_KEY) === 'open'; } catch (err) { /* private mode */ }
+let panelButton = null;
+
+function applySidebar() {
+  shell.classList.toggle('tv-collapsed', !sidebarOpen);
+  if (panelButton) {
+    panelButton.textContent = sidebarOpen ? '×' : '☰';
+    panelButton.title = sidebarOpen ? 'Hide the list' : 'Show the list';
+  }
+  setTimeout(() => { map.invalidateSize(); redraw(true); }, 60);
+}
+
+const PanelToggle = L.Control.extend({
+  onAdd: function () {
+    const link = L.DomUtil.create('a', 'tv-panel-toggle');
+    link.href = '#';
+    L.DomEvent.on(link, 'click', L.DomEvent.stop);
+    L.DomEvent.on(link, 'click', () => {
+      sidebarOpen = !sidebarOpen;
+      try { localStorage.setItem(SIDEBAR_KEY, sidebarOpen ? 'open' : 'closed'); } catch (err) { /* private mode */ }
+      applySidebar();
+    });
+    panelButton = link;
+    return link;
+  },
+});
+new PanelToggle({ position: 'topleft' }).addTo(map);
+
 /* ---------- state ---------- */
 const q = document.getElementById('tv-q');
 const dmin = document.getElementById('tv-dmin'), dmax = document.getElementById('tv-dmax');
@@ -329,11 +361,13 @@ document.getElementById('tv-clear').onclick = () => {
   updateSidesButton();
   onlyViewport = false; document.getElementById('tv-viewport').classList.remove('on');
   listLimit = 200; applyFilters();
+applySidebar();
 };
 document.getElementById('tv-viewport').onclick = e => {
   onlyViewport = !onlyViewport;
   e.target.style.background = onlyViewport ? '#fdece7' : '';
   applyFilters();
+applySidebar();
 };
 document.getElementById('tv-fit').onclick = () => {
   const bs = filtered.filter(r => r.bbox);
@@ -352,7 +386,6 @@ document.querySelectorAll('.tab').forEach(el => {
    The map is pinned over the page (position: fixed), which also works inside
    someone else layout. Native fullscreen is requested on top of that to hide
    the browser chrome as well; a refusal changes nothing. */
-const shell = document.getElementById('tv');
 const fullBtn = document.getElementById('tv-fullscreen');
 
 function nativeFullscreenElement() {
@@ -394,4 +427,5 @@ document.addEventListener('keydown', e => {
 });
 
 applyFilters();
+applySidebar();
 };
