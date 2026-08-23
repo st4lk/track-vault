@@ -11,7 +11,7 @@ build-prod:
 
 # локальный просмотр: рядом кладётся незашифрованный tracks.js
 build-local:
-	@$(PYTHON) build.py --mode local --out dist --data-file $(DATA)
+	@$(PYTHON) build.py --mode local --full --out dist --data-file $(DATA)
 
 serve: build-prod
 	@cd dist && $(PYTHON) -m http.server 8080

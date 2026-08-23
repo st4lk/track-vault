@@ -47,12 +47,12 @@ def main():
     parser.add_argument('--title')
     parser.add_argument('--data-url', help='перебить ссылку из config.json')
     parser.add_argument('--data-file', type=Path, help='local: положить рядом этот tracks.js')
-    parser.add_argument('--full', action='store_true', help='карта на весь экран, а не блоком')
+    parser.add_argument('--full', action='store_true',
+                        help='карта на весь экран (для отдельной страницы, не для вставки)')
     args = parser.parse_args()
 
-    path = build(args.mode, args.out, args.title, args.data_url,
-                 full=args.full or args.mode == 'local')
-    if args.data_file:
+    path = build(args.mode, args.out, args.title, args.data_url, full=args.full)
+    if args.data_file and args.data_file.resolve() != (args.out / 'tracks.js').resolve():
         shutil.copy2(args.data_file, args.out / 'tracks.js')
     size = path.stat().st_size / 1024
     print(f'{path} ({size:.0f} КБ, режим {args.mode})')

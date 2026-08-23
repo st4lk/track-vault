@@ -8,6 +8,14 @@
   color: var(--tv-fg); background: var(--tv-bg);
   border: 1px solid var(--tv-line); border-radius: 10px;
 }
+/* Встроенная на страницу карта вылезает из узкой колонки на всю ширину окна.
+   40px запаса, чтобы полоса прокрутки не вызывала горизонтальный скролл. */
+#tv:not(.tv-full) {
+  --tv-wide: min(1400px, calc(100vw - 40px));
+  width: var(--tv-wide);
+  max-width: none;
+  margin-left: calc(50% - var(--tv-wide) / 2);
+}
 #tv.tv-full { height: 100vh; min-height: 0; border: none; border-radius: 0; }
 #tv *, #tv *::before, #tv *::after { box-sizing: border-box; }
 
