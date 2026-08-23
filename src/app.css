@@ -1,4 +1,4 @@
-/* Всё изолировано внутри #tv: страница может быть вставлена в чужую вёрстку. */
+/* Everything is scoped to #tv: the page may be embedded into someone else layout. */
 #tv {
   --tv-bg: #ffffff; --tv-fg: #1b1d21; --tv-muted: #6b7280; --tv-line: #e3e6ea;
   --tv-accent: #e8522b; --tv-side: 380px;
@@ -8,8 +8,8 @@
   color: var(--tv-fg); background: var(--tv-bg);
   border: 1px solid var(--tv-line); border-radius: 10px;
 }
-/* Встроенная на страницу карта вылезает из узкой колонки на всю ширину окна.
-   40px запаса, чтобы полоса прокрутки не вызывала горизонтальный скролл. */
+/* Embedded map breaks out of a narrow column and spans the window.
+   40px are left over so a scrollbar cannot cause horizontal scrolling. */
 #tv:not(.tv-full) {
   --tv-wide: min(1400px, calc(100vw - 40px));
   width: var(--tv-wide);
@@ -17,7 +17,7 @@
   margin-left: calc(50% - var(--tv-wide) / 2);
 }
 #tv.tv-full { height: 100vh; min-height: 0; border: none; border-radius: 0; }
-/* раскрытая на всё окно карта: поверх страницы сайта */
+/* expanded map: covers the whole window on top of the page */
 #tv.tv-cover {
   position: fixed; inset: 0; z-index: 99999;
   width: auto; height: auto; margin: 0; min-height: 0;
@@ -93,7 +93,7 @@
 #tv .links a { text-decoration: none; border: 1px solid var(--tv-line); padding: 4px 8px; border-radius: 6px; }
 #tv .hint { color: var(--tv-muted); font-size: 12px; padding: 10px 12px; }
 
-/* форма пароля */
+/* password form */
 #tv-gate {
   position: absolute; inset: 0; z-index: 5000; display: flex;
   align-items: center; justify-content: center; background: #f4f5f7;

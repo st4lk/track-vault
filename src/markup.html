@@ -1,39 +1,39 @@
 <div id="tv-sidebar">
   <header>
-    <h1>Треки</h1>
+    <h1>Tracks</h1>
     <div class="sub" id="tv-counts"></div>
   </header>
   <div class="controls">
     <div class="row">
-      <input type="text" id="tv-q" placeholder="Поиск: место, автор, описание…">
-      <button id="tv-fit" title="Показать все отфильтрованные">⤢</button>
-      <button id="tv-fullscreen" title="На весь экран (Esc — выйти)">⛶</button>
+      <input type="text" id="tv-q" placeholder="Search: place, author, description…">
+      <button id="tv-fit" title="Fit everything that passed the filters">⤢</button>
+      <button id="tv-fullscreen" title="Full window (Esc to exit)">⛶</button>
     </div>
     <div class="row">
-      <label class="lbl">км</label>
-      <input type="number" id="tv-dmin" placeholder="от">
-      <input type="number" id="tv-dmax" placeholder="до">
-      <label class="lbl">год</label>
-      <input type="number" id="tv-ymin" placeholder="от">
-      <input type="number" id="tv-ymax" placeholder="до">
+      <label class="lbl">km</label>
+      <input type="number" id="tv-dmin" placeholder="from">
+      <input type="number" id="tv-dmax" placeholder="to">
+      <label class="lbl">year</label>
+      <input type="number" id="tv-ymin" placeholder="from">
+      <input type="number" id="tv-ymax" placeholder="to">
     </div>
     <div class="row">
-      <label class="lbl">цвет</label>
+      <label class="lbl">color</label>
       <select id="tv-colorBy">
-        <option value="side">по стороне света</option>
-        <option value="dist">по расстоянию</option>
-        <option value="year">по году</option>
-        <option value="none">один цвет</option>
+        <option value="side">by side</option>
+        <option value="dist">by distance</option>
+        <option value="year">by year</option>
+        <option value="none">single color</option>
       </select>
-      <button id="tv-clear">сброс</button>
-      <button id="tv-viewport">в видимой области</button>
-      <label class="lbl" title="Куски треков из тех же ссылок на nakarte, которые не удалось привязать к строке таблицы"><input type="checkbox" id="tv-extra"> прочее</label>
+      <button id="tv-clear">reset</button>
+      <button id="tv-viewport">in view</button>
+      <label class="lbl" title="Pieces of tracks from the same nakarte links that could not be matched to a row"><input type="checkbox" id="tv-extra"> extra</label>
     </div>
     <div class="chips" id="tv-sideChips"></div>
   </div>
   <div class="tabs">
-    <div class="tab on" data-tab="routes">Треки</div>
-    <div class="tab" data-tab="orphans">Без карты</div>
+    <div class="tab on" data-tab="routes">Tracks</div>
+    <div class="tab" data-tab="orphans">No map</div>
   </div>
   <div id="tv-list"></div>
 </div>

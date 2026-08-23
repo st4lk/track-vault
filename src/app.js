@@ -27,12 +27,13 @@ function latlngs(track, lod) {
 /* ---------- colors ---------- */
 const PALETTE = ['#e8522b','#2b7fe8','#1fa363','#b455d6','#e0a800','#0fb4c4','#d6336c','#7a5cf0',
                  '#5c8a2b','#c2571d','#3d6bb3','#8c8c00','#00897b','#6d4c41','#546e7a'];
+// side names come from the sheet as they are written there
 const ORDER = ['Центр','Север','Северо-Восток','Восток','Юго-Восток','Юг','Юго-Запад','Запад','Северо-Запад'];
 const CANON = ORDER.concat(ORDER.map(s => 'Дальний ' + s));
 const routeSides = r => (r.sides && r.sides.length) ? r.sides : (r.sides_auto || []);
 const present = new Set(ROUTES.flatMap(routeSides));
 const sideList = CANON.filter(s => present.has(s));
-if (ROUTES.some(r => !routeSides(r).length)) sideList.push('— не указано');
+if (ROUTES.some(r => !routeSides(r).length)) sideList.push('— unspecified');
 const SIDE_HUE = new Map(ORDER.map((s, i) => [s, PALETTE[i % PALETTE.length]]));
 const sideColor = new Map(sideList.map(s => [s, SIDE_HUE.get(s.replace('Дальний ', '')) || '#9aa1a9']));
 function distColor(km) {
@@ -61,7 +62,7 @@ const base = {
     { maxZoom: 19, attribution: '© OpenStreetMap' }),
   'OpenTopoMap': L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',
     { maxZoom: 17, attribution: '© OpenTopoMap, © OpenStreetMap' }),
-  'Спутник (Esri)': L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+  'Satellite (Esri)': L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
     { maxZoom: 18, attribution: 'Esri' }),
 };
 base['OSM'].addTo(map);
@@ -103,7 +104,7 @@ function passes(r, useViewport) {
   const text = q.value.trim().toLowerCase();
   if (text && !text.split(/\s+/).every(w => r._text.includes(w))) return false;
   if (activeSides.size) {
-    const rs = routeSides(r).length ? routeSides(r) : ['— не указано'];
+    const rs = routeSides(r).length ? routeSides(r) : ['— unspecified'];
     if (!rs.some(s => activeSides.has(s))) return false;
   }
   const lo = parseFloat(dmin.value), hi = parseFloat(dmax.value);
@@ -123,8 +124,8 @@ function passes(r, useViewport) {
 function applyFilters() {
   filtered = ROUTES.filter(r => passes(r, onlyViewport));
   const km = filtered.reduce((s, r) => s + r._km, 0);
-  countsEl.textContent = `${filtered.length} из ${ROUTES.length} треков · ${Math.round(km).toLocaleString('ru')} км · ${ORPHANS.length} без карты`;
-  countsEl.title = `${TRACKS.length} геометрий, ${EXTRA.length} непривязанных`;
+  countsEl.textContent = `${filtered.length} of ${ROUTES.length} tracks · ${Math.round(km).toLocaleString('en-US')} km · ${ORPHANS.length} without a map`;
+  countsEl.title = `${TRACKS.length} geometries, ${EXTRA.length} unmatched`;
   renderList();
   redraw(true);
 }
@@ -157,7 +158,7 @@ function redraw(force) {
     line.on('click', () => { lastTrackClick = Date.now(); selectRoute(route.i); });
     line.on('mouseover', () => line.setStyle({ weight: 5, opacity: 1 }));
     line.on('mouseout', () => line.setStyle({ weight: 2.5, opacity: 0.75 }));
-    line.bindTooltip(`${route.place || t.name} · ${Math.round(route._km)} км`, { sticky: true });
+    line.bindTooltip(`${route.place || t.name} · ${Math.round(route._km)} km`, { sticky: true });
     trackLayer.addLayer(line);
     drawn.set(tid, { layer: line, lod });
   }
@@ -177,7 +178,7 @@ function redrawExtra() {
     }
     if (extraDrawn.has(t.id)) continue;
     const line = L.polyline(latlngs(t, lod), { color: '#8a8f96', weight: 1.5, opacity: 0.6, dashArray: '4,4' });
-    line.bindTooltip(`${t.name || 'без названия'} · ${t.km} км (не привязан)`, { sticky: true });
+    line.bindTooltip(`${t.name || 'untitled'} · ${t.km} km (unmatched)`, { sticky: true });
     line.on('click', () => { lastTrackClick = Date.now(); showExtraDetail(t); });
     extraLayer.addLayer(line);
     extraDrawn.set(t.id, { layer: line, lod });
@@ -187,10 +188,10 @@ function showExtraDetail(t) {
   highlightLayer.clearLayers();
   L.polyline(latlngs(t, 'hi'), { color: '#fff23a', weight: 3, opacity: 1,
                                  pane: 'highlightPane', renderer: highlightRenderer }).addTo(highlightLayer);
-  detailBody.innerHTML = `<h2>${esc(t.name) || 'Без названия'}</h2>
-    <div class="kv">${t.km} км · часть сохранённой ссылки, не привязана к строке таблицы</div>
-    ${t.src ? `<div class="kv">из строки: ${esc(t.src.place)}</div><div class="links">
-      ${t.src.link ? `<a href="${esc(t.src.link)}" target="_blank" rel="noopener">Источник ↗</a>` : ''}
+  detailBody.innerHTML = `<h2>${esc(t.name) || 'Untitled'}</h2>
+    <div class="kv">${t.km} km · a piece of a saved link, not matched to any row</div>
+    ${t.src ? `<div class="kv">from row: ${esc(t.src.place)}</div><div class="links">
+      ${t.src.link ? `<a href="${esc(t.src.link)}" target="_blank" rel="noopener">Source ↗</a>` : ''}
       ${t.src.nakarte ? `<a href="${esc(t.src.nakarte)}" target="_blank" rel="noopener">nakarte ↗</a>` : ''}</div>` : ''}`;
   detailEl.style.display = 'block';
 }
@@ -226,17 +227,17 @@ function esc(s) { return (s || '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<':
 function showDetail(r) {
   const same = ROUTES.filter(o => o !== r && o.tracks.some(t => r.tracks.includes(t)));
   detailBody.innerHTML = `
-    <h2>${esc(r.place) || esc(r.owner) || 'Трек'}</h2>
-    <div class="kv">${esc(r.owner)} · ${esc(r.date)} · ${r.sides && r.sides.length ? esc(r.sides.join(', ')) : (r.sides_auto ? esc(r.sides_auto.join(', ')) + ' (определено автоматически)' : 'сторона не указана')}</div>
-    <div class="kv">${r.dist ? esc(r.dist) + ' км по таблице' : ''}${r.geo_km ? ' · ' + r.geo_km + ' км по треку' : ''}${r.tracks.length > 1 ? ' · ' + r.tracks.length + ' частей' : ''}</div>
-    ${r.from_strava ? '<div class="kv">трек скачан из Strava</div>' : ''}
+    <h2>${esc(r.place) || esc(r.owner) || 'Track'}</h2>
+    <div class="kv">${esc(r.owner)} · ${esc(r.date)} · ${r.sides && r.sides.length ? esc(r.sides.join(', ')) : (r.sides_auto ? esc(r.sides_auto.join(', ')) + ' (guessed)' : 'side not set')}</div>
+    <div class="kv">${r.dist ? esc(r.dist) + ' km per the sheet' : ''}${r.geo_km ? ' · ' + r.geo_km + ' km measured' : ''}${r.tracks.length > 1 ? ' · ' + r.tracks.length + ' parts' : ''}</div>
+    ${r.from_strava ? '<div class="kv">track downloaded from Strava</div>' : ''}
     ${r.desc ? `<div class="desc">${esc(r.desc)}</div>` : ''}
     <div class="links">
-      ${r.link ? `<a href="${esc(r.link)}" target="_blank" rel="noopener">Источник ↗</a>` : ''}
+      ${r.link ? `<a href="${esc(r.link)}" target="_blank" rel="noopener">Source ↗</a>` : ''}
       ${r.nakarte ? `<a href="${esc(r.nakarte)}" target="_blank" rel="noopener">nakarte ↗</a>` : ''}
-      <a href="#" id="tv-zoomHere">приблизить</a>
+      <a href="#" id="tv-zoomHere">zoom to it</a>
     </div>
-    ${same.length ? `<div class="kv" style="margin-top:8px">Та же геометрия сохранена ещё ${same.length} раз(а): ${same.map(o => esc(o.place || o.date)).join('; ')}</div>` : ''}
+    ${same.length ? `<div class="kv" style="margin-top:8px">The same geometry is saved ${same.length} more time(s): ${same.map(o => esc(o.place || o.date)).join('; ')}</div>` : ''}
   `;
   detailEl.style.display = 'block';
   const z = document.getElementById('tv-zoomHere');
@@ -252,7 +253,7 @@ document.getElementById('tv-detailClose').onclick = closeDetail;
 
 let lastTrackClick = 0;
 map.on('click', () => {
-  if (Date.now() - lastTrackClick < 100) return;   // клик пришёл по треку, не по фону
+  if (Date.now() - lastTrackClick < 100) return;   // the click came from a track, not from the background
   if (detailEl.style.display === 'block' || selected !== null) closeDetail();
 });
 
@@ -266,12 +267,12 @@ function renderList() {
       <div class="item-inner">
         <div class="swatch" style="background:${routeColor(r)}"></div>
         <div style="flex:1;min-width:0">
-          <div class="t">${esc(r.place) || esc(r.name) || '(без названия)'}</div>
-          <div class="m"><span>${Math.round(r._km)} км</span><span>${esc(r.date)}</span><span>${esc(r.side)}</span><span>${esc(r.owner)}</span></div>
+          <div class="t">${esc(r.place) || esc(r.name) || '(untitled)'}</div>
+          <div class="m"><span>${Math.round(r._km)} km</span><span>${esc(r.date)}</span><span>${esc(r.side)}</span><span>${esc(r.owner)}</span></div>
         </div>
       </div>
     </div>`).join('') +
-    (filtered.length > listLimit ? `<div id="tv-more"><button id="tv-moreBtn">ещё ${filtered.length - listLimit}</button></div>` : '');
+    (filtered.length > listLimit ? `<div id="tv-more"><button id="tv-moreBtn">${filtered.length - listLimit} more</button></div>` : '');
   listEl.querySelectorAll('.item').forEach(el => {
     el.onclick = () => zoomToRoute(parseInt(el.dataset.i, 10));
   });
@@ -280,12 +281,12 @@ function renderList() {
 }
 function renderOrphans() {
   const shown = ORPHANS.filter(o => passes(o, false)).slice(0, 400);
-  listEl.innerHTML = `<div class="hint">Строки без геометрии: ссылка есть, но трека на nakarte нет
-    (в основном strava-активности, которые не парсились). Их можно добавить на карту позже.</div>` +
+  listEl.innerHTML = `<div class="hint">Rows with no geometry: there is a link, but no track behind it.
+    Mostly links to other sites. They can be put on the map later.</div>` +
     shown.map(o => `
     <div class="item">
-      <div class="t">${esc(o.place) || '(без названия)'}</div>
-      <div class="m"><span>${o.dist ? esc(o.dist) + ' км' : ''}</span><span>${esc(o.date)}</span><span>${esc(o.side)}</span><span>${esc(o.owner)}</span></div>
+      <div class="t">${esc(o.place) || '(untitled)'}</div>
+      <div class="m"><span>${o.dist ? esc(o.dist) + ' km' : ''}</span><span>${esc(o.date)}</span><span>${esc(o.side)}</span><span>${esc(o.owner)}</span></div>
       ${o.link ? `<a href="${esc(o.link)}" target="_blank" rel="noopener" style="font-size:12px">${esc(o.link.slice(0, 60))}</a>` : ''}
     </div>`).join('');
 }
@@ -328,10 +329,10 @@ document.querySelectorAll('.tab').forEach(el => {
   };
 });
 
-/* ---------- на весь экран ----------
-   Карта раскрывается поверх страницы (position: fixed) — так же работает
-   и внутри чужой вёрстки. Заодно пробуем нативный полноэкранный режим,
-   чтобы спрятать и хром браузера; если браузер откажет — не страшно. */
+/* ---------- expand to the whole window ----------
+   The map is pinned over the page (position: fixed), which also works inside
+   someone else layout. Native fullscreen is requested on top of that to hide
+   the browser chrome as well; a refusal changes nothing. */
 const shell = document.getElementById('tv');
 const fullBtn = document.getElementById('tv-fullscreen');
 
@@ -343,7 +344,7 @@ function setCover(on) {
   shell.classList.toggle('tv-cover', on);
   document.documentElement.style.overflow = on ? 'hidden' : '';
   fullBtn.textContent = on ? '⤡' : '⛶';
-  fullBtn.title = on ? 'Свернуть (Esc)' : 'На весь экран';
+  fullBtn.title = on ? 'Collapse (Esc)' : 'Full window';
   setTimeout(() => { map.invalidateSize(); redraw(true); }, 120);
 }
 
@@ -357,11 +358,11 @@ fullBtn.onclick = () => {
     } else if (nativeFullscreenElement()) {
       (document.exitFullscreen || document.webkitExitFullscreen).call(document);
     }
-  } catch (err) { /* нативного режима может не быть — остаётся наш оверлей */ }
+  } catch (err) { /* native fullscreen may be unavailable - the overlay still stands */ }
 };
 
 function onFullscreenChange() {
-  // вышли из нативного режима кнопкой браузера — сворачиваем и оверлей
+  // left native fullscreen from the browser UI - collapse the overlay too
   if (!nativeFullscreenElement() && shell.classList.contains('tv-cover')) setCover(false);
 }
 document.addEventListener('fullscreenchange', onFullscreenChange);

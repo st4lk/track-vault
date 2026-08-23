@@ -2,14 +2,14 @@
 
 PYTHON ?= python3
 
-# сайт вызывает install перед сборкой; тут ставить нечего
+# the site calls install before building; nothing to install here
 install:
 	@true
 
 build-prod:
 	@$(PYTHON) build.py --mode prod --out dist
 
-# локальный просмотр: рядом кладётся незашифрованный tracks.js
+# local preview: a plain tracks.js is placed next to the page
 build-local:
 	@$(PYTHON) build.py --mode local --full --out dist --data-file $(DATA)
 
