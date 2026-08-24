@@ -124,6 +124,7 @@ function refreshMine() {
     segments.push(t[lod]);
   }
   mineLayer.setLatLngs(segments);
+  mineLayer.bringToFront();
 }
 mineLayer.on('add', refreshMine);
 
@@ -253,6 +254,7 @@ function redraw(force) {
     trackLayer.addLayer(line);
     drawn.set(tid, { layer: line, lod });
   }
+  if (map.hasLayer(mineLayer)) mineLayer.bringToFront();
 }
 const EXTRA = TRACKS.filter(t => !t.routes.length);
 const extraDrawn = new Map();
