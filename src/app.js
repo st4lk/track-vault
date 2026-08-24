@@ -1,6 +1,7 @@
 window.__bootMap = function () {
 const D = window.VELO_DATA;
 const TRACKS = D.tracks, ROUTES = D.routes, ORPHANS = D.orphans;
+const MINE = D.mine || [];   // the athlete's own rides, a backdrop layer
 const trackById = new Map(TRACKS.map(t => [t.id, t]));
 
 /* ---------- polyline codec ---------- */
@@ -70,14 +71,43 @@ const base = {
     { maxZoom: 18, attribution: 'Esri' }),
 };
 base['OSM'].addTo(map);
-L.control.layers(base).addTo(map);
+const trackLayer = L.layerGroup().addTo(map);
+
+/* Own rides sit in their own pane under everything else and ignore clicks:
+   the layer answers "have I been here", the routes above stay clickable. */
+map.createPane('minePane');
+map.getPane('minePane').style.zIndex = 395;
+map.getPane('minePane').style.pointerEvents = 'none';
+const mineRenderer = L.canvas({ pane: 'minePane' });
+// One multi-segment polyline holding only what the current view needs: a
+// thousand separate layers, or all of them at once, freeze the page for a second.
+const mineLayer = L.polyline([], {
+  color: '#2b2f36', weight: 2, opacity: 0.55, interactive: false,
+  pane: 'minePane', renderer: mineRenderer,
+});
+function refreshMine() {
+  if (!map.hasLayer(mineLayer)) return;
+  const b = map.getBounds(), lod = map.getZoom() >= 11 ? '_hi' : '_lo';
+  const segments = [];
+  for (const t of MINE) {
+    if (t.bbox[0] > b.getNorth() || t.bbox[2] < b.getSouth() ||
+        t.bbox[1] > b.getEast() || t.bbox[3] < b.getWest()) continue;
+    if (!t[lod]) t[lod] = decodePolyline(lod === '_lo' ? (t.polylo || t.poly) : t.poly);
+    segments.push(t[lod]);
+  }
+  mineLayer.setLatLngs(segments);
+}
+mineLayer.on('add', refreshMine);
+
+const overlays = { [`Saved routes (${ROUTES.length})`]: trackLayer };
+if (MINE.length) overlays[`My rides (${MINE.length})`] = mineLayer;
+L.control.layers(base, overlays).addTo(map);
 L.control.scale({ imperial: false }).addTo(map);
 
 map.createPane('highlightPane');
 map.getPane('highlightPane').style.zIndex = 640;
 map.getPane('highlightPane').style.pointerEvents = 'none';
 const highlightRenderer = L.canvas({ pane: 'highlightPane' });
-const trackLayer = L.layerGroup().addTo(map);
 const extraLayer = L.layerGroup();
 const highlightLayer = L.layerGroup().addTo(map);
 const drawn = new Map();      // trackId -> {layer, lod}
@@ -235,7 +265,7 @@ document.getElementById('tv-extra').onchange = e => {
   if (e.target.checked) { map.addLayer(extraLayer); redrawExtra(); }
   else { map.removeLayer(extraLayer); extraLayer.clearLayers(); extraDrawn.clear(); }
 };
-map.on('moveend zoomend', () => { if (onlyViewport) applyFilters(); else redraw(false); redrawExtra(); });
+map.on('moveend zoomend', () => { if (onlyViewport) applyFilters(); else redraw(false); redrawExtra(); refreshMine(); });
 
 /* ---------- selection ---------- */
 function selectRoute(i) {
