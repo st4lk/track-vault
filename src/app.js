@@ -73,18 +73,46 @@ const base = {
 base['OSM'].addTo(map);
 const trackLayer = L.layerGroup().addTo(map);
 
-/* Own rides sit in their own pane under everything else and ignore clicks:
-   the layer answers "have I been here", the routes above stay clickable. */
-map.createPane('minePane');
-map.getPane('minePane').style.zIndex = 395;
-map.getPane('minePane').style.pointerEvents = 'none';
-const mineRenderer = L.canvas({ pane: 'minePane' });
+/* Own rides share the canvas with the routes: a separate pane on top would
+   swallow every click meant for the layer underneath. */
 // One multi-segment polyline holding only what the current view needs: a
 // thousand separate layers, or all of them at once, freeze the page for a second.
-const mineLayer = L.polyline([], {
-  color: '#2b2f36', weight: 2, opacity: 0.55, interactive: false,
-  pane: 'minePane', renderer: mineRenderer,
+const mineLayer = L.polyline([], { color: '#1f2329', weight: 4, opacity: 0.75 });
+mineLayer.on('click', (e) => {
+  lastTrackClick = Date.now();
+  const t = nearestMine(e.latlng);
+  if (t) showMineDetail(t);
 });
+function nearestMine(latlng) {
+  const pad = 0.02;
+  let best = null, bestDistance = Infinity;
+  for (const t of MINE) {
+    if (latlng.lat < t.bbox[0] - pad || latlng.lat > t.bbox[2] + pad ||
+        latlng.lng < t.bbox[1] - pad || latlng.lng > t.bbox[3] + pad) continue;
+    const points = t._hi || (t._hi = decodePolyline(t.poly));
+    for (const p of points) {
+      const d = (p[0] - latlng.lat) ** 2 + ((p[1] - latlng.lng) * 0.57) ** 2;
+      if (d < bestDistance) { bestDistance = d; best = t; }
+    }
+  }
+  return best;
+}
+
+function showMineDetail(t) {
+  highlightLayer.clearLayers();
+  L.polyline(t._hi || decodePolyline(t.poly), {
+    color: '#fff23a', weight: 4, opacity: 1, pane: 'highlightPane', renderer: highlightRenderer,
+  }).addTo(highlightLayer);
+  const stravaId = String(t.id).split('-')[0];
+  detailBody.innerHTML = `<h2>${esc(t.name) || 'Ride'}</h2>
+    <div class="kv">${esc(t.date)} · ${esc(t.type)} · ${t.km} km</div>
+    <div class="kv">my own ride</div>
+    <div class="links">
+      <a href="https://www.strava.com/activities/${esc(stravaId)}" target="_blank" rel="noopener">Strava ↗</a>
+    </div>`;
+  detailEl.style.display = 'block';
+}
+
 function refreshMine() {
   if (!map.hasLayer(mineLayer)) return;
   const b = map.getBounds(), lod = map.getZoom() >= 11 ? '_hi' : '_lo';
@@ -114,9 +142,7 @@ const drawn = new Map();      // trackId -> {layer, lod}
 
 /* ---------- the sidebar folds away, the map stays ---------- */
 const shell = document.getElementById('tv');
-const SIDEBAR_KEY = 'track-vault-sidebar';
-let sidebarOpen = false;
-try { sidebarOpen = localStorage.getItem(SIDEBAR_KEY) === 'open'; } catch (err) { /* private mode */ }
+let sidebarOpen = false;   // always starts collapsed: the map is the point
 let panelButton = null;
 
 function applySidebar() {
@@ -135,7 +161,6 @@ const PanelToggle = L.Control.extend({
     L.DomEvent.on(link, 'click', L.DomEvent.stop);
     L.DomEvent.on(link, 'click', () => {
       sidebarOpen = !sidebarOpen;
-      try { localStorage.setItem(SIDEBAR_KEY, sidebarOpen ? 'open' : 'closed'); } catch (err) { /* private mode */ }
       applySidebar();
     });
     panelButton = link;
