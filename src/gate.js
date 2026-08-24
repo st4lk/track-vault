@@ -5,7 +5,16 @@
   var STORE_KEY = "track-vault-key";
   var gate = document.getElementById('tv-gate');
   var status = document.getElementById('tv-gateStatus');
+  var form = document.getElementById('tv-gateForm');
   var cache = null;
+
+  function showForm(visible) {
+    form.style.display = visible ? '' : 'none';
+  }
+
+  function setBusy(busy) {
+    [...form.elements].forEach(function (el) { el.disabled = busy; });
+  }
 
   function say(text, isError) {
     status.textContent = text;
@@ -60,11 +69,13 @@
     window.__bootMap();
   }
 
-  document.getElementById('tv-gateForm').addEventListener('submit', function (e) {
+  form.addEventListener('submit', function (e) {
     e.preventDefault();
     var pw = document.getElementById('tv-pw').value;
     if (!pw) return;
+    setBusy(true);
     open(pw, null, document.getElementById('tv-remember').checked).catch(function (err) {
+      setBusy(false);
       var wrongPassword = err.name === 'OperationError' || /decrypt/i.test(String(err.message || err));
       say(wrongPassword ? 'wrong password' : 'error: ' + (err.message || err), true);
     });
@@ -72,9 +83,13 @@
 
   var saved = localStorage.getItem(STORE_KEY);
   if (saved) {
+    // the key is already here: asking for a password while downloading only confuses
+    showForm(false);
     var bytes = Uint8Array.from(atob(saved), function (c) { return c.charCodeAt(0); });
     open(null, bytes, false).catch(function () {
       localStorage.removeItem(STORE_KEY);
+      showForm(true);
+      document.getElementById('tv-pw').focus();
       say('the saved key no longer works, enter the password', true);
     });
   } else {
