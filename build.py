@@ -19,7 +19,9 @@ def build(mode, out_dir, title=None, data_url=None, full=False, fragment=False, 
     page = page.replace('__TITLE__', title or config.get('title', 'Track Vault'))
     page = page.replace('__STYLES__', (SRC / 'app.css').read_text().rstrip())
     page = page.replace('__MARKUP__', (SRC / 'markup.html').read_text().rstrip())
-    page = page.replace('__APP__', (SRC / 'app.js').read_text().rstrip())
+    app = (SRC / 'app.js').read_text().rstrip()
+    app = app.replace('/* __WEATHER__ */', (SRC / 'weather.js').read_text().rstrip())
+    page = page.replace('__APP__', app)
     page = page.replace('__FULL__', ' class="tv-full"' if full else '')
 
     if mode == 'prod':

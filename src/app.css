@@ -103,6 +103,26 @@
 #tv .links a { text-decoration: none; border: 1px solid var(--tv-line); padding: 4px 8px; border-radius: 6px; }
 #tv .hint { color: var(--tv-muted); font-size: 12px; padding: 10px 12px; }
 
+/* weather panel */
+#tv .tv-weather-box { position: relative; }
+#tv .tv-weather {
+  display: none; position: absolute; left: 38px; top: 0; width: 250px;
+  background: #fff; border: 1px solid var(--tv-line); border-radius: 8px;
+  padding: 8px 10px; box-shadow: 0 6px 20px rgba(0,0,0,.15); font-size: 12px;
+}
+#tv .tv-weather.on { display: block; }
+#tv .tv-weather-row { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; margin-bottom: 6px; }
+#tv .tv-weather-row label { display: flex; align-items: center; gap: 3px; color: var(--tv-muted); }
+#tv .tv-weather select { font: inherit; font-size: 12px; padding: 3px 5px; border: 1px solid var(--tv-line); border-radius: 5px; }
+#tv .tv-weather input[type=range] { flex: 1; min-width: 90px; }
+#tv .tv-weather-legend { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; color: var(--tv-muted); }
+#tv .tv-weather-legend i { display: inline-block; width: 14px; height: 10px; border-radius: 2px; margin-right: 2px; }
+#tv .tv-weather-note { display: block; margin-top: 4px; line-height: 1.3; }
+#tv .tv-weather-status { color: var(--tv-muted); min-height: 14px; margin-top: 4px; }
+#tv .tv-wind { display: flex; align-items: center; gap: 2px; font-size: 15px; line-height: 1; text-shadow: 0 0 3px #fff, 0 0 3px #fff; }
+#tv .tv-wind span { display: inline-block; }
+#tv .tv-wind b { font-size: 10px; color: #333; font-weight: 600; }
+
 /* password form */
 #tv-gate {
   position: absolute; inset: 0; z-index: 5000; display: flex;

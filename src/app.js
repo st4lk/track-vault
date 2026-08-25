@@ -307,6 +307,7 @@ function selectRoute(i) {
     L.polyline(latlngs(t, 'hi'), { color: '#fff23a', weight: 3, opacity: 1,
                                    pane: 'highlightPane', renderer: highlightRenderer }).addTo(highlightLayer);
   }
+  if (typeof paintWind === 'function') paintWind(r);
   showDetail(r);
   renderList();
 }
@@ -419,12 +420,16 @@ document.getElementById('tv-clear').onclick = () => {
   onlyViewport = false; document.getElementById('tv-viewport').classList.remove('on');
   listLimit = 200; applyFilters();
 applySidebar();
+
+/* __WEATHER__ */
 };
 document.getElementById('tv-viewport').onclick = e => {
   onlyViewport = !onlyViewport;
   e.target.style.background = onlyViewport ? '#fdece7' : '';
   applyFilters();
 applySidebar();
+
+/* __WEATHER__ */
 };
 document.getElementById('tv-fit').onclick = () => {
   const bs = filtered.filter(r => r.bbox);
@@ -485,4 +490,6 @@ document.addEventListener('keydown', e => {
 
 applyFilters();
 applySidebar();
+
+/* __WEATHER__ */
 };

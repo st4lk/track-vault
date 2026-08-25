@@ -21,6 +21,17 @@ make build-local DATA=/path/to/tracks.js
 
 Builds a page without the password form that reads `tracks.js` sitting next to it.
 
+## Weather
+
+The cloud button opens a panel with a day and an hour: wind arrows, temperature,
+rain and soil moisture over a grid covering the current view, plus a route
+painted green where the wind pushes and red where it pushes back.
+
+Data comes from [Open-Meteo](https://open-meteo.com/) - no key, CORS open, so the
+page asks for it directly. A week ahead, one request per view. Soil moisture is
+scaled to what is in view: the useful question is where it is wetter than next
+door, not the exact number.
+
 ## Configuration
 
 `src/config.json`:
@@ -50,5 +61,6 @@ src/markup.html     app markup
 src/app.css         styles, all scoped under #tv so the page can be embedded
 src/app.js          the map itself, expects window.VELO_DATA
 src/gate.html/.js   password form, download, decryption (PBKDF2 + AES-GCM)
+src/weather.js      weather overlays and the head/tail wind painting
 build.py            assembles everything into a single self-contained file
 ```
