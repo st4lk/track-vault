@@ -5,11 +5,18 @@
 const WEATHER_URL = 'https://api.open-meteo.com/v1/forecast';
 const WEATHER_FIELDS = ['temperature_2m', 'precipitation', 'wind_speed_10m',
                         'wind_direction_10m', 'soil_moisture_0_to_7cm'];
-const GRID_SIDE = 7;            // 49 points per fetch keeps the url short
+const GRID_SIDE = 6;            // 36 points is plenty for a regional picture
 const FORECAST_DAYS = 7;
+const REFRESH_DELAY = 800;      // wait until the map really stopped moving
 
+/* Open-Meteo counts locations, variables and days, not requests, so the cheapest
+   thing to do is ask rarely and never twice for the same place. Cell centres are
+   snapped to a fixed lattice: panning around lands on cells already in hand. */
+const cellCache = new Map();
 let weather = null;             // {cells: [{lat, lon, hourly}], times: []}
-let weatherKey = '';            // which view the data was fetched for
+let weatherTimes = null;
+let refreshTimer = null;
+let coolingDown = false;
 let weatherHour = 0;            // index into times
 const shownFields = { temp: false, rain: false, soil: false };
 let windShown = false;
@@ -36,19 +43,28 @@ function windColor(speed) {
 }
 
 /* ---------- fetching ---------- */
+function latticeStep() {
+  const zoom = map.getZoom();
+  if (zoom <= 7) return 0.5;
+  if (zoom <= 9) return 0.25;
+  if (zoom <= 11) return 0.1;
+  return 0.05;
+}
+
 function gridForView() {
   const b = map.getBounds();
-  const south = b.getSouth(), north = b.getNorth();
-  const west = b.getWest(), east = b.getEast();
-  const dy = (north - south) / GRID_SIDE, dx = (east - west) / GRID_SIDE;
-  const cells = [];
+  const step = latticeStep();
+  const snap = (v) => Math.round(v / step) * step;
+  const lats = [], lons = [];
+  const latSpan = b.getNorth() - b.getSouth(), lonSpan = b.getEast() - b.getWest();
   for (let i = 0; i < GRID_SIDE; i++) {
-    for (let j = 0; j < GRID_SIDE; j++) {
-      cells.push({
-        lat: +(south + dy * (i + 0.5)).toFixed(3),
-        lon: +(west + dx * (j + 0.5)).toFixed(3),
-        dy, dx,
-      });
+    lats.push(snap(b.getSouth() + latSpan * (i + 0.5) / GRID_SIDE));
+    lons.push(snap(b.getWest() + lonSpan * (i + 0.5) / GRID_SIDE));
+  }
+  const cells = [];
+  for (const lat of [...new Set(lats)]) {
+    for (const lon of [...new Set(lons)]) {
+      cells.push({ lat: +lat.toFixed(3), lon: +lon.toFixed(3), dy: step, dx: step });
     }
   }
   return cells;
@@ -56,27 +72,39 @@ function gridForView() {
 
 async function loadWeather() {
   const cells = gridForView();
-  const key = cells.map(c => c.lat + ',' + c.lon).join(';');
-  if (key === weatherKey) return;
-  setWeatherStatus('loading…');
-  const params = new URLSearchParams({
-    latitude: cells.map(c => c.lat).join(','),
-    longitude: cells.map(c => c.lon).join(','),
-    hourly: WEATHER_FIELDS.join(','),
-    forecast_days: String(FORECAST_DAYS),
-    timezone: 'auto',
-    wind_speed_unit: 'kmh',
-  });
-  const resp = await fetch(`${WEATHER_URL}?${params}`);
-  if (!resp.ok) throw new Error('HTTP ' + resp.status);
-  const payload = await resp.json();
-  const list = Array.isArray(payload) ? payload : [payload];
-  weather = {
-    cells: cells.map((cell, i) => Object.assign({}, cell, { hourly: list[i].hourly })),
-    times: list[0].hourly.time,
-  };
-  weatherKey = key;
-  setWeatherStatus('');
+  const missing = cells.filter(c => !cellCache.has(`${c.lat},${c.lon}`));
+  if (missing.length) {
+    if (coolingDown) return;
+    setWeatherStatus('loading…');
+    const params = new URLSearchParams({
+      latitude: missing.map(c => c.lat).join(','),
+      longitude: missing.map(c => c.lon).join(','),
+      hourly: WEATHER_FIELDS.join(','),
+      forecast_days: String(FORECAST_DAYS),
+      timezone: 'auto',
+      wind_speed_unit: 'kmh',
+    });
+    const resp = await fetch(`${WEATHER_URL}?${params}`);
+    if (resp.status === 429) {
+      coolingDown = true;
+      setWeatherStatus('the weather service asked to slow down, waiting a minute');
+      setTimeout(() => { coolingDown = false; setWeatherStatus(''); }, 60000);
+      return;
+    }
+    if (!resp.ok) throw new Error('HTTP ' + resp.status);
+    const payload = await resp.json();
+    const list = Array.isArray(payload) ? payload : [payload];
+    missing.forEach((cell, i) => {
+      if (list[i] && list[i].hourly) cellCache.set(`${cell.lat},${cell.lon}`, list[i].hourly);
+    });
+    weatherTimes = (list[0] && list[0].hourly.time) || weatherTimes;
+    setWeatherStatus('');
+  }
+  const known = cells
+    .map(c => Object.assign({}, c, { hourly: cellCache.get(`${c.lat},${c.lon}`) }))
+    .filter(c => c.hourly);
+  if (!known.length) return;
+  weather = { cells: known, times: weatherTimes || known[0].hourly.time };
   fillDayPicker();
 }
 
@@ -304,5 +332,8 @@ weatherPanel.querySelectorAll('input[data-field]').forEach(el => {
 
 map.on('moveend', () => {
   if (!weatherPanel.classList.contains('on')) return;
-  loadWeather().then(syncHour).catch(err => setWeatherStatus(String(err.message || err)));
+  clearTimeout(refreshTimer);
+  refreshTimer = setTimeout(() => {
+    loadWeather().then(syncHour).catch(err => setWeatherStatus(String(err.message || err)));
+  }, REFRESH_DELAY);
 });

@@ -33,9 +33,13 @@ back. "Ride it back" flips the direction, since the same road is a different rid
 depending on which end you start from.
 
 Data comes from [Open-Meteo](https://open-meteo.com/) - no key, CORS open, so the
-page asks for it directly. A week ahead, one request per view. Soil moisture is
-scaled to what is in view: the useful question is where it is wetter than next
-door, not the exact number.
+page asks for it directly, a week ahead.
+
+Their free tier is measured in locations times variables times days rather than
+in requests, so the grid is snapped to a fixed lattice and every cell is kept:
+panning lands on cells already in hand and asks for nothing. Only cells never
+seen before are fetched, and only once the map has stopped moving. On HTTP 429
+the panel says so and waits a minute.
 
 ## Configuration
 
