@@ -320,7 +320,20 @@ function zoomToRoute(i) {
 }
 function esc(s) { return (s || '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
 
+const NARROW = () => window.matchMedia('(max-width: 720px)').matches;
+
+/* On a phone both sheets sit on the bottom edge, so the folded card is lifted
+   above the weather panel instead of hiding under it. */
+function positionSheets() {
+  const panel = document.querySelector('.tv-weather');
+  const stacked = NARROW() && panel && panel.classList.contains('on')
+                  && detailEl.style.display === 'block';
+  detailEl.style.bottom = stacked ? (panel.offsetHeight + 20) + 'px' : '';
+}
+
 function showDetail(r) {
+  // on a phone both sheets live at the bottom edge: let the newcomer have it
+  if (NARROW() && typeof hideWeatherPanel === 'function') hideWeatherPanel();
   const same = ROUTES.filter(o => o !== r && o.tracks.some(t => r.tracks.includes(t)));
   detailBody.innerHTML = `
     <h2>${esc(r.place) || esc(r.owner) || 'Track'}</h2>
@@ -337,6 +350,9 @@ function showDetail(r) {
     ${same.length ? `<div class="kv" style="margin-top:8px">The same geometry is saved ${same.length} more time(s): ${same.map(o => esc(o.place || o.date)).join('; ')}</div>` : ''}
   `;
   detailEl.style.display = 'block';
+  detailEl.classList.remove('tv-min');
+  detailMin.textContent = '▾';
+  positionSheets();
   const z = document.getElementById('tv-zoomHere');
   if (z) z.onclick = e => { e.preventDefault(); const b = r.bbox; map.fitBounds([[b[0], b[1]], [b[2], b[3]]], { padding: [30, 30] }); };
   const rev = document.getElementById('tv-reverse');
@@ -349,11 +365,19 @@ function showDetail(r) {
 }
 function closeDetail() {
   detailEl.style.display = 'none';
+  detailEl.style.bottom = '';
   highlightLayer.clearLayers();
   selected = null;
   renderList();
 }
 document.getElementById('tv-detailClose').onclick = closeDetail;
+
+/* folding keeps the track selected: on a phone the card covers half the map */
+const detailMin = document.getElementById('tv-detailMin');
+detailMin.onclick = () => {
+  const folded = detailEl.classList.toggle('tv-min');
+  detailMin.textContent = folded ? '▴' : '▾';
+};
 
 let lastTrackClick = 0;
 map.on('click', () => {

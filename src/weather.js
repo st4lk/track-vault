@@ -277,6 +277,7 @@ function syncHour() {
   weatherHour = index < 0 ? 0 : index;
   document.getElementById('tv-wtime').textContent = `${String(hour).padStart(2, '0')}:00`;
   drawWeather();
+  positionSheets();
   if (selected !== null && windShown) paintWind(ROUTES[selected]);
 }
 
@@ -298,15 +299,26 @@ function updateLegend() {
   el.innerHTML = note + wind;
 }
 
+/* Hiding the panel must not switch the weather off: on a phone the panel covers
+   the map, so it gets folded away constantly while the layers should stay. */
+function hideWeatherPanel() {
+  weatherPanel.classList.remove('on');
+  positionSheets();
+}
+
 async function toggleWeather(on) {
   weatherPanel.classList.toggle('on', on);
-  if (!on) {
-    map.removeLayer(weatherLayer);
-    map.removeLayer(windLayer);
-    return;
+  if (!on) return;
+  if (NARROW()) {
+    detailEl.classList.add('tv-min');   // fold the track card out of the way
+    const min = document.getElementById('tv-detailMin');
+    if (min) min.textContent = '▴';
+    positionSheets();
   }
-  map.addLayer(weatherLayer);
-  map.addLayer(windLayer);
+  if (!map.hasLayer(weatherLayer)) {
+    map.addLayer(weatherLayer);
+    map.addLayer(windLayer);
+  }
   try {
     await loadWeather();
   } catch (err) {

@@ -92,10 +92,14 @@
   box-shadow: 0 6px 24px rgba(0,0,0,.14); padding: 12px 14px; z-index: 1000; display: none;
 }
 #tv-detail h2 { font-size: 15px; margin: 0 8px 4px 0; }
-#tv-detail .close {
-  position: absolute; right: 8px; top: 6px; cursor: pointer;
+#tv-detail .close, #tv-detail .min {
+  position: absolute; top: 6px; cursor: pointer;
   color: var(--tv-muted); font-size: 18px; line-height: 1;
 }
+#tv-detail .close { right: 8px; }
+#tv-detail .min { right: 30px; font-size: 14px; top: 8px; }
+#tv-detail.tv-min { max-height: 40px; overflow: hidden; }
+#tv-detail.tv-min h2 { margin-right: 54px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 #tv-detail .desc { white-space: pre-wrap; margin: 8px 0; max-height: 220px; overflow-y: auto; font-size: 13px; }
 #tv-detail a { color: var(--tv-accent); }
 #tv .kv { color: var(--tv-muted); font-size: 12px; }
@@ -152,6 +156,14 @@
 #tv-gate .status.err { color: #c0392b; }
 
 @media (max-width: 720px) {
+  /* both panels turn into a sheet at the bottom, leaving the map visible */
+  #tv-detail {
+    left: 8px; right: 8px; bottom: 8px; top: auto; width: auto; max-height: 45vh;
+  }
+  #tv .tv-weather {
+    position: fixed; left: 8px; right: 8px; bottom: 8px; top: auto;
+    width: auto; max-height: 45vh; overflow-y: auto;
+  }
   #tv { flex-direction: column; }
   #tv-sidebar {
     width: 100%; min-width: 0; height: 50%;

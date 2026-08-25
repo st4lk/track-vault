@@ -41,6 +41,15 @@ panning lands on cells already in hand and asks for nothing. Only cells never
 seen before are fetched, and only once the map has stopped moving. On HTTP 429
 the panel says so and waits a minute.
 
+## On a phone
+
+Both the weather panel and the track card become sheets pinned to the bottom
+edge, so the map stays visible above them. The card folds to its title with the
+arrow next to the close cross, and folding it keeps the track selected. Hiding
+the weather panel leaves the layers running - only the checkboxes switch them
+off. When both would sit at the bottom at once, the card is lifted above the
+panel and the newcomer gets the room.
+
 ## Configuration
 
 `src/config.json`:
