@@ -100,10 +100,13 @@ function drawWeather() {
       const from = cell.hourly.wind_direction_10m[hour];
       if (speed === null || from === null) continue;
       // the arrow points where the wind blows to, not where it comes from
+      // the arrow points north at rotation 0, so it can be turned by the bearing
+      // the wind blows to; wind_direction_10m says where it comes from
       const icon = L.divIcon({
         className: 'tv-wind',
-        html: `<span style="transform: rotate(${(from + 180) % 360}deg); color: ${windColor(speed)}">➤`
-              + `</span><b>${Math.round(speed)}</b>`,
+        html: `<svg viewBox="0 0 24 24" style="transform: rotate(${(from + 180) % 360}deg)">`
+              + `<path d="M12 1 L19 22 L12 17 L5 22 Z" fill="${windColor(speed)}"/></svg>`
+              + `<b>${Math.round(speed)}</b>`,
         iconSize: [34, 18], iconAnchor: [17, 19],
       });
       L.marker([cell.lat, cell.lon], { icon, interactive: false, pane: 'weatherPane' })

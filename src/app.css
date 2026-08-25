@@ -125,7 +125,7 @@
   text-shadow: 0 0 3px #fff, 0 0 3px #fff, 0 0 4px #fff, 0 0 4px #fff;
 }
 #tv .tv-wind { display: flex; align-items: center; gap: 2px; font-size: 15px; line-height: 1; text-shadow: 0 0 3px #fff, 0 0 3px #fff; }
-#tv .tv-wind span { display: inline-block; }
+#tv .tv-wind svg { width: 15px; height: 15px; display: block; filter: drop-shadow(0 0 2px #fff); }
 #tv .tv-wind b { font-size: 10px; color: #333; font-weight: 600; }
 
 /* password form */
