@@ -23,9 +23,10 @@ Builds a page without the password form that reads `tracks.js` sitting next to i
 
 ## Weather
 
-The cloud button opens a panel with a day and an hour: wind arrows, temperature,
-rain and soil moisture over a grid covering the current view, plus a route
-painted green where the wind pushes and red where it pushes back.
+The cloud button opens a panel with a day and an hour. Values are printed as
+numbers over a grid covering the current view - degrees, millimetres, per cent of
+water in the soil - with wind arrows on top of them. A picked route is painted
+green where the wind pushes and red where it pushes back.
 
 Data comes from [Open-Meteo](https://open-meteo.com/) - no key, CORS open, so the
 page asks for it directly. A week ahead, one request per view. Soil moisture is

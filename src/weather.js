@@ -20,39 +20,7 @@ map.getPane('weatherPane').style.pointerEvents = 'none';
 const weatherLayer = L.layerGroup([], { pane: 'weatherPane' });
 const windLayer = L.layerGroup([], { pane: 'weatherPane' });
 
-/* ---------- colour scales ---------- */
-function mix(a, b, t) {
-  return '#' + [0, 1, 2].map(i => {
-    const v = Math.round(a[i] + (b[i] - a[i]) * Math.max(0, Math.min(1, t)));
-    return v.toString(16).padStart(2, '0');
-  }).join('');
-}
-function tempColor(c) {
-  if (c <= 0) return mix([49, 84, 160], [86, 160, 211], (c + 20) / 20);
-  if (c <= 15) return mix([86, 160, 211], [126, 190, 120], c / 15);
-  if (c <= 25) return mix([126, 190, 120], [230, 170, 60], (c - 15) / 10);
-  return mix([230, 170, 60], [200, 60, 45], (c - 25) / 10);
-}
-function rainColor(mm) {
-  if (mm < 0.05) return null;
-  return mix([200, 225, 245], [30, 80, 190], mm / 5);
-}
-/* Soil moisture over one region barely varies in absolute numbers, so the scale
-   is stretched to what is actually in view: the point is where it is wetter than
-   next door, not the exact m3/m3. */
-let soilRange = [0.12, 0.40];
-function soilColor(v) {
-  const [lo, hi] = soilRange;
-  return mix([196, 164, 120], [40, 90, 150], (v - lo) / Math.max(hi - lo, 0.01));
-}
-function updateSoilRange() {
-  if (!weather) return;
-  const values = weather.cells
-    .map(c => c.hourly.soil_moisture_0_to_7cm[weatherHour])
-    .filter(v => v !== null && v !== undefined);
-  if (values.length < 2) return;
-  soilRange = [Math.min(...values), Math.max(...values)];
-}
+/* ---------- wind colour ---------- */
 function windColor(speed) {
   if (speed < 12) return '#4c8f4c';
   if (speed < 25) return '#c58a1f';
@@ -110,7 +78,6 @@ function drawWeather() {
   windLayer.clearLayers();
   if (!weather) return;
   const hour = weatherHour;
-  if (weatherField === 'soil') updateSoilRange();
   for (const cell of weather.cells) {
     const value = {
       temp: cell.hourly.temperature_2m[hour],
@@ -118,13 +85,13 @@ function drawWeather() {
       soil: cell.hourly.soil_moisture_0_to_7cm[hour],
     }[weatherField];
     if (weatherField !== 'none' && value !== null && value !== undefined) {
-      const color = weatherField === 'temp' ? tempColor(value)
-        : weatherField === 'rain' ? rainColor(value) : soilColor(value);
-      if (color) {
-        L.rectangle([[cell.lat - cell.dy / 2, cell.lon - cell.dx / 2],
-                     [cell.lat + cell.dy / 2, cell.lon + cell.dx / 2]], {
-          stroke: false, fillColor: color, fillOpacity: 0.45,
+      const label = formatValue(weatherField, value);
+      if (label) {
+        L.marker([cell.lat, cell.lon], {
           interactive: false, pane: 'weatherPane',
+          // sits below the point so the wind arrow above it stays readable
+          icon: L.divIcon({ className: 'tv-value', html: label,
+                            iconSize: [44, 16], iconAnchor: [22, -3] }),
         }).addTo(weatherLayer);
       }
     }
@@ -137,13 +104,20 @@ function drawWeather() {
         className: 'tv-wind',
         html: `<span style="transform: rotate(${(from + 180) % 360}deg); color: ${windColor(speed)}">➤`
               + `</span><b>${Math.round(speed)}</b>`,
-        iconSize: [34, 18],
+        iconSize: [34, 18], iconAnchor: [17, 19],
       });
       L.marker([cell.lat, cell.lon], { icon, interactive: false, pane: 'weatherPane' })
         .addTo(windLayer);
     }
   }
   updateLegend();
+}
+
+function formatValue(field, value) {
+  if (field === 'temp') return Math.round(value) + '°';
+  if (field === 'rain') return value < 0.05 ? '' : value.toFixed(1);
+  if (field === 'soil') return Math.round(value * 100) + '%';   // volumetric water content
+  return '';
 }
 
 /* ---------- head or tail wind along a route ---------- */
@@ -270,18 +244,18 @@ function updateLegend() {
   if (!el) return;
   const scales = {
     none: '',
-    temp: [[-15, '-15°'], [0, '0°'], [10, '10°'], [20, '20°'], [30, '30°']]
-      .map(([v, t]) => `<i style="background:${tempColor(v)}"></i>${t}`).join(''),
-    rain: [[0.1, '0.1'], [1, '1'], [3, '3'], [5, '5+ mm']]
-      .map(([v, t]) => `<i style="background:${rainColor(v)}"></i>${t}`).join(''),
-    soil: [[soilRange[0], 'drier'], [(soilRange[0] + soilRange[1]) / 2, ''], [soilRange[1], 'wetter']]
-      .map(([v, t]) => `<i style="background:${soilColor(v)}"></i>${t}`).join(''),
+    temp: 'degrees celsius at 2 m',
+    rain: 'millimetres falling during that hour',
+    soil: 'water in the top 7 cm of soil, per cent by volume: bigger means muddier',
   };
   const wind = windShown
-    ? '<span class="tv-weather-note">arrows show where the wind blows to. A picked route is painted '
-      + '<i style="background:#1fa363"></i> with the wind, <i style="background:#c0392b"></i> against it.</span>'
+    ? '<span class="tv-weather-note">arrows show where the wind blows to, the number is km/h. '
+      + 'A picked route is painted <i style="background:#1fa363"></i> with the wind, '
+      + '<i style="background:#c0392b"></i> against it.</span>'
     : '';
-  el.innerHTML = (scales[weatherField] || '') + wind;
+  const note = scales[weatherField]
+    ? `<span class="tv-weather-note">${scales[weatherField]}</span>` : '';
+  el.innerHTML = note + wind;
 }
 
 async function toggleWeather(on) {
