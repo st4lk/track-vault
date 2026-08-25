@@ -11,7 +11,7 @@ const FORECAST_DAYS = 7;
 let weather = null;             // {cells: [{lat, lon, hourly}], times: []}
 let weatherKey = '';            // which view the data was fetched for
 let weatherHour = 0;            // index into times
-let weatherField = 'none';
+const shownFields = { temp: false, rain: false, soil: false };
 let windShown = false;
 
 map.createPane('weatherPane');
@@ -19,6 +19,14 @@ map.getPane('weatherPane').style.zIndex = 350;   // above the map, below every t
 map.getPane('weatherPane').style.pointerEvents = 'none';
 const weatherLayer = L.layerGroup([], { pane: 'weatherPane' });
 const windLayer = L.layerGroup([], { pane: 'weatherPane' });
+
+/* Small monochrome marks so a bare number says what it is about. */
+const ICONS = {
+  temp: '<svg viewBox="0 0 16 16"><path d="M6.5 9.2V3a1.5 1.5 0 0 1 3 0v6.2a3 3 0 1 1-3 0z"/></svg>',
+  rain: '<svg viewBox="0 0 16 16"><path d="M8 1.5c2.6 3.3 4.5 5.6 4.5 7.6a4.5 4.5 0 0 1-9 0c0-2 1.9-4.3 4.5-7.6z"/></svg>',
+  soil: '<svg viewBox="0 0 16 16"><path d="M8 1.2c2.2 2.8 3.8 4.8 3.8 6.5a3.8 3.8 0 0 1-7.6 0c0-1.7 1.6-3.7 3.8-6.5z"/>'
+        + '<rect x="1" y="11.4" width="14" height="1.5" rx=".7"/><rect x="1" y="14" width="14" height="1.5" rx=".7"/></svg>',
+};
 
 /* ---------- wind colour ---------- */
 function windColor(speed) {
@@ -78,28 +86,30 @@ function drawWeather() {
   windLayer.clearLayers();
   if (!weather) return;
   const hour = weatherHour;
+  const fields = Object.keys(shownFields).filter(f => shownFields[f]);
   for (const cell of weather.cells) {
-    const value = {
-      temp: cell.hourly.temperature_2m[hour],
-      rain: cell.hourly.precipitation[hour],
-      soil: cell.hourly.soil_moisture_0_to_7cm[hour],
-    }[weatherField];
-    if (weatherField !== 'none' && value !== null && value !== undefined) {
-      const label = formatValue(weatherField, value);
-      if (label) {
-        L.marker([cell.lat, cell.lon], {
-          interactive: false, pane: 'weatherPane',
-          // sits below the point so the wind arrow above it stays readable
-          icon: L.divIcon({ className: 'tv-value', html: label,
-                            iconSize: [44, 16], iconAnchor: [22, -3] }),
-        }).addTo(weatherLayer);
-      }
+    const rows = fields.map(field => {
+      const raw = {
+        temp: cell.hourly.temperature_2m[hour],
+        rain: cell.hourly.precipitation[hour],
+        soil: cell.hourly.soil_moisture_0_to_7cm[hour],
+      }[field];
+      const label = formatValue(field, raw);
+      return label === '' ? '' : `<span>${ICONS[field]}${label}</span>`;
+    }).filter(Boolean);
+    if (rows.length) {
+      L.marker([cell.lat, cell.lon], {
+        interactive: false, pane: 'weatherPane',
+        icon: L.divIcon({
+          className: 'tv-value', html: rows.join(''),
+          iconSize: [56, 16 * rows.length], iconAnchor: [28, -3],
+        }),
+      }).addTo(weatherLayer);
     }
     if (windShown) {
       const speed = cell.hourly.wind_speed_10m[hour];
       const from = cell.hourly.wind_direction_10m[hour];
       if (speed === null || from === null) continue;
-      // the arrow points where the wind blows to, not where it comes from
       // the arrow points north at rotation 0, so it can be turned by the bearing
       // the wind blows to; wind_direction_10m says where it comes from
       const icon = L.divIcon({
@@ -117,9 +127,10 @@ function drawWeather() {
 }
 
 function formatValue(field, value) {
+  if (value === null || value === undefined) return '';
   if (field === 'temp') return Math.round(value) + '°';
-  if (field === 'rain') return value < 0.05 ? '' : value.toFixed(1);
-  if (field === 'soil') return Math.round(value * 100) + '%';   // volumetric water content
+  if (field === 'rain') return value < 0.05 ? '0' : value.toFixed(1);   // dry hours say so
+  if (field === 'soil') return Math.round(value * 100) + '%';           // water by volume
   return '';
 }
 
@@ -166,7 +177,7 @@ function paintWind(route) {
   for (const tid of route.tracks) {
     const track = trackById.get(tid);
     if (!track) continue;
-    const points = latlngs(track, 'hi');
+    const points = routeReversed ? latlngs(track, 'hi').slice().reverse() : latlngs(track, 'hi');
     const step = Math.max(1, Math.floor(points.length / 120));
     for (let i = 0; i + step < points.length; i += step) {
       const a = points[i], b = points[i + step];
@@ -188,10 +199,9 @@ weatherPanel.innerHTML = `
     <span id="tv-wtime">--</span>
   </div>
   <div class="tv-weather-row">
-    <label><input type="radio" name="tv-wfield" value="none" checked> off</label>
-    <label><input type="radio" name="tv-wfield" value="temp"> temp</label>
-    <label><input type="radio" name="tv-wfield" value="rain"> rain</label>
-    <label><input type="radio" name="tv-wfield" value="soil"> wet</label>
+    <label><input type="checkbox" data-field="temp"> temp</label>
+    <label><input type="checkbox" data-field="rain"> rain</label>
+    <label><input type="checkbox" data-field="soil"> wet</label>
     <label><input type="checkbox" id="tv-wwind"> wind</label>
   </div>
   <div class="tv-weather-legend" id="tv-wlegend"></div>
@@ -246,9 +256,8 @@ function updateLegend() {
   const el = document.getElementById('tv-wlegend');
   if (!el) return;
   const scales = {
-    none: '',
-    temp: 'degrees celsius at 2 m',
-    rain: 'millimetres falling during that hour',
+    temp: 'degrees at 2 m',
+    rain: 'millimetres in that hour',
     soil: 'water in the top 7 cm of soil, per cent by volume: bigger means muddier',
   };
   const wind = windShown
@@ -256,8 +265,8 @@ function updateLegend() {
       + 'A picked route is painted <i style="background:#1fa363"></i> with the wind, '
       + '<i style="background:#c0392b"></i> against it.</span>'
     : '';
-  const note = scales[weatherField]
-    ? `<span class="tv-weather-note">${scales[weatherField]}</span>` : '';
+  const note = Object.keys(shownFields).filter(f => shownFields[f])
+    .map(f => `<span class="tv-weather-note">${ICONS[f]} ${scales[f]}</span>`).join('');
   el.innerHTML = note + wind;
 }
 
@@ -289,8 +298,8 @@ document.getElementById('tv-wwind').onchange = e => {
     else selectRoute(selected);
   }
 };
-weatherPanel.querySelectorAll('input[name="tv-wfield"]').forEach(el => {
-  el.onchange = () => { weatherField = el.value; drawWeather(); };
+weatherPanel.querySelectorAll('input[data-field]').forEach(el => {
+  el.onchange = () => { shownFields[el.dataset.field] = el.checked; drawWeather(); };
 });
 
 map.on('moveend', () => {

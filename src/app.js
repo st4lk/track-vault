@@ -179,6 +179,7 @@ const listEl = document.getElementById('tv-list');
 const countsEl = document.getElementById('tv-counts');
 const detailEl = document.getElementById('tv-detail'), detailBody = document.getElementById('tv-detailBody');
 let activeSides = new Set();
+let routeReversed = false;   // ride it the other way round: flips the wind painting
 let onlyViewport = false;
 let filtered = [];
 let selected = null;
@@ -296,6 +297,7 @@ map.on('moveend zoomend', () => { if (onlyViewport) applyFilters(); else redraw(
 
 /* ---------- selection ---------- */
 function selectRoute(i) {
+  if (i !== selected) routeReversed = false;
   selected = i;
   const r = ROUTES[i];
   highlightLayer.clearLayers();
@@ -330,12 +332,20 @@ function showDetail(r) {
       ${r.link ? `<a href="${esc(r.link)}" target="_blank" rel="noopener">Source ↗</a>` : ''}
       ${r.nakarte ? `<a href="${esc(r.nakarte)}" target="_blank" rel="noopener">nakarte ↗</a>` : ''}
       <a href="#" id="tv-zoomHere">zoom to it</a>
+      <a href="#" id="tv-reverse">${routeReversed ? 'ride it back ⇄' : 'ride it there ⇄'}</a>
     </div>
     ${same.length ? `<div class="kv" style="margin-top:8px">The same geometry is saved ${same.length} more time(s): ${same.map(o => esc(o.place || o.date)).join('; ')}</div>` : ''}
   `;
   detailEl.style.display = 'block';
   const z = document.getElementById('tv-zoomHere');
   if (z) z.onclick = e => { e.preventDefault(); const b = r.bbox; map.fitBounds([[b[0], b[1]], [b[2], b[3]]], { padding: [30, 30] }); };
+  const rev = document.getElementById('tv-reverse');
+  if (rev) rev.onclick = e => {
+    e.preventDefault();
+    routeReversed = !routeReversed;
+    if (typeof paintWind === 'function') paintWind(r);
+    showDetail(r);
+  };
 }
 function closeDetail() {
   detailEl.style.display = 'none';
