@@ -26,7 +26,9 @@ Builds a page without the password form that reads `tracks.js` sitting next to i
 The cloud button opens a panel with a day and an hour. Each measure has its own
 checkbox, so they can be read together: degrees, millimetres and per cent of
 water in the soil are printed as numbers over a grid covering the current view,
-each with a small mark saying which is which, and wind arrows sit above them.
+each with a small mark saying which is which, and wind arrows sit above them
+showing steady…gust speed, coloured by the gusts - out in the open it is the
+gusts that are felt.
 
 A picked route is painted green where the wind pushes and red where it pushes
 back. "Ride it back" flips the direction, since the same road is a different ride

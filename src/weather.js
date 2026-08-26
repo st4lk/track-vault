@@ -4,7 +4,7 @@
    Wind, temperature, rain and soil moisture (the closest thing to "how muddy"). */
 const WEATHER_URL = 'https://api.open-meteo.com/v1/forecast';
 const WEATHER_FIELDS = ['temperature_2m', 'precipitation', 'wind_speed_10m',
-                        'wind_direction_10m', 'soil_moisture_0_to_7cm'];
+                        'wind_gusts_10m', 'wind_direction_10m', 'soil_moisture_0_to_7cm'];
 const GRID_SIDE = 6;            // 36 points is plenty for a regional picture
 const FORECAST_DAYS = 7;
 const REFRESH_DELAY = 800;      // wait until the map really stopped moving
@@ -137,15 +137,19 @@ function drawWeather() {
     if (windShown) {
       const speed = cell.hourly.wind_speed_10m[hour];
       const from = cell.hourly.wind_direction_10m[hour];
+      const gust = (cell.hourly.wind_gusts_10m || [])[hour];
       if (speed === null || from === null) continue;
+      // out in the open it is the gusts that are felt, so both numbers are shown
+      const shown = (gust !== null && gust !== undefined && gust - speed >= 2)
+        ? `${Math.round(speed)}…${Math.round(gust)}` : String(Math.round(speed));
       // the arrow points north at rotation 0, so it can be turned by the bearing
       // the wind blows to; wind_direction_10m says where it comes from
       const icon = L.divIcon({
         className: 'tv-wind',
         html: `<svg viewBox="0 0 24 24" style="transform: rotate(${(from + 180) % 360}deg)">`
-              + `<path d="M12 1 L19 22 L12 17 L5 22 Z" fill="${windColor(speed)}"/></svg>`
-              + `<b>${Math.round(speed)}</b>`,
-        iconSize: [34, 18], iconAnchor: [17, 19],
+              + `<path d="M12 1 L19 22 L12 17 L5 22 Z" fill="${windColor(gust || speed)}"/></svg>`
+              + `<b>${shown}</b>`,
+        iconSize: [58, 18], iconAnchor: [29, 19],
       });
       L.marker([cell.lat, cell.lon], { icon, interactive: false, pane: 'weatherPane' })
         .addTo(windLayer);
@@ -290,7 +294,8 @@ function updateLegend() {
     soil: 'water in the top 7 cm of soil, per cent by volume: bigger means muddier',
   };
   const wind = windShown
-    ? '<span class="tv-weather-note">arrows show where the wind blows to, the number is km/h. '
+    ? '<span class="tv-weather-note">arrows show where the wind blows to, the numbers are km/h: '
+      + 'steady…gusts, and the colour follows the gusts. '
       + 'A picked route is painted <i style="background:#1fa363"></i> with the wind, '
       + '<i style="background:#c0392b"></i> against it.</span>'
     : '';

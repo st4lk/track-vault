@@ -131,7 +131,10 @@
 #tv .tv-value span { display: flex; align-items: center; justify-content: center; gap: 2px; }
 #tv .tv-value svg, #tv .tv-weather-note svg { width: 10px; height: 10px; fill: currentColor; opacity: .75; }
 #tv .tv-weather-note svg { vertical-align: -1px; }
-#tv .tv-wind { display: flex; align-items: center; gap: 2px; font-size: 15px; line-height: 1; text-shadow: 0 0 3px #fff, 0 0 3px #fff; }
+#tv .tv-wind {
+  display: flex; align-items: center; gap: 2px; font-size: 15px; line-height: 1;
+  white-space: nowrap; text-shadow: 0 0 3px #fff, 0 0 3px #fff;
+}
 #tv .tv-wind svg { width: 15px; height: 15px; display: block; filter: drop-shadow(0 0 2px #fff); }
 #tv .tv-wind b { font-size: 10px; color: #333; font-weight: 600; }
 
