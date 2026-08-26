@@ -37,8 +37,8 @@ const ICONS = {
 
 /* ---------- wind colour ---------- */
 function windColor(speed) {
-  if (speed < 12) return '#4c8f4c';
-  if (speed < 25) return '#c58a1f';
+  if (speed < 3.5) return '#4c8f4c';    // metres per second from here on
+  if (speed < 7) return '#c58a1f';
   return '#c0392b';
 }
 
@@ -82,7 +82,7 @@ async function loadWeather() {
       hourly: WEATHER_FIELDS.join(','),
       forecast_days: String(FORECAST_DAYS),
       timezone: 'auto',
-      wind_speed_unit: 'kmh',
+      wind_speed_unit: 'ms',   // м/с: that is what local forecasts speak
     });
     const resp = await fetch(`${WEATHER_URL}?${params}`);
     if (resp.status === 429) {
@@ -141,8 +141,8 @@ function drawWeather() {
       const gust = (cell.hourly.wind_gusts_10m || [])[hour];
       if (speed === null || from === null) continue;
       // out in the open it is the gusts that are felt, so both numbers are shown
-      const shown = (gust !== null && gust !== undefined && gust - speed >= 2)
-        ? `${Math.round(speed)}…${Math.round(gust)}` : String(Math.round(speed));
+      const shown = (gust !== null && gust !== undefined && gust - speed >= 0.6)
+        ? `${speed.toFixed(0)}…${gust.toFixed(0)}` : speed.toFixed(0);
       // the arrow points north at rotation 0, so it can be turned by the bearing
       // the wind blows to; wind_direction_10m says where it comes from
       const icon = L.divIcon({
@@ -198,14 +198,14 @@ function bearing(a, b) {
 
 /* green tail wind, red head wind, grey when it hardly matters */
 function windSegmentColor(course, wind) {
-  if (!wind || wind.speed === null || wind.speed < 5) return '#9aa1a9';
+  if (!wind || wind.speed === null || wind.speed < 1.5) return '#9aa1a9';
   const blowingTo = (wind.from + 180) % 360;
   let diff = Math.abs(((blowingTo - course + 540) % 360) - 180);   // 0 = straight in the back
   const help = Math.cos(diff * Math.PI / 180) * wind.speed;
-  if (help > 8) return '#1fa363';
-  if (help > 3) return '#7ac36a';
-  if (help < -8) return '#c0392b';
-  if (help < -3) return '#e8734a';
+  if (help > 2.2) return '#1fa363';
+  if (help > 0.8) return '#7ac36a';
+  if (help < -2.2) return '#c0392b';
+  if (help < -0.8) return '#e8734a';
   return '#9aa1a9';
 }
 
@@ -387,7 +387,7 @@ function updateLegend() {
     soil: 'water in the top 7 cm of soil, per cent by volume: bigger means muddier',
   };
   const wind = windShown
-    ? '<span class="tv-weather-note">arrows show where the wind blows to, the numbers are km/h: '
+    ? '<span class="tv-weather-note">arrows show where the wind blows to, the numbers are m/s: '
       + 'steady…gusts, and the colour follows the gusts. '
       + 'A picked route is painted <i style="background:#1fa363"></i> with the wind, '
       + '<i style="background:#c0392b"></i> against it.</span>'

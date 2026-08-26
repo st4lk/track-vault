@@ -27,8 +27,8 @@ The cloud button opens a panel with a day and an hour. Each measure has its own
 checkbox, so they can be read together: degrees, millimetres and per cent of
 water in the soil are printed as numbers over a grid covering the current view,
 each with a small mark saying which is which, and wind arrows sit above them
-showing steady…gust speed, coloured by the gusts - out in the open it is the
-gusts that are felt.
+showing steady…gust speed in metres per second, coloured by the gusts - out in
+the open it is the gusts that are felt.
 
 A picked route is painted green where the wind pushes and red where it pushes
 back. "Ride it back" flips the direction, since the same road is a different ride
@@ -36,7 +36,7 @@ depending on which end you start from.
 
 "Best by wind" ranks the routes on screen that passed the filters. The number is
 the tailwind component averaged along the route and weighted by the length of
-every piece, in km/h: how much the wind adds or takes away over the whole ride.
+every piece, in m/s: how much the wind adds or takes away over the whole ride.
 With "either way" a route is also considered backwards - turning it round negates
 the score exactly - and the ones worth riding in reverse are marked.
 
