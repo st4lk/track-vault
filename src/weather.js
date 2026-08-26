@@ -110,6 +110,7 @@ async function loadWeather() {
 
 /* ---------- drawing ---------- */
 function drawWeather() {
+  windLookup.clear();
   weatherLayer.clearLayers();
   windLayer.clearLayers();
   if (!weather) return;
@@ -167,18 +168,23 @@ function formatValue(field, value) {
 }
 
 /* ---------- head or tail wind along a route ---------- */
+const windLookup = new Map();
 function windAt(lat, lon) {
   if (!weather) return null;
+  const key = Math.round(lat * 10) + ':' + Math.round(lon * 10);
+  if (windLookup.has(key)) return windLookup.get(key);
   let best = null, bestDistance = Infinity;
   for (const cell of weather.cells) {
     const d = (cell.lat - lat) ** 2 + ((cell.lon - lon) * 0.57) ** 2;
     if (d < bestDistance) { bestDistance = d; best = cell; }
   }
   if (!best) return null;
-  return {
+  const found = {
     speed: best.hourly.wind_speed_10m[weatherHour],
     from: best.hourly.wind_direction_10m[weatherHour],
   };
+  windLookup.set(key, found);
+  return found;
 }
 
 function bearing(a, b) {
@@ -201,6 +207,86 @@ function windSegmentColor(course, wind) {
   if (help < -8) return '#c0392b';
   if (help < -3) return '#e8734a';
   return '#9aa1a9';
+}
+
+/* ---------- which of the visible routes the wind favours ----------
+   The score is the tailwind component averaged along the route and weighted by
+   the length of every piece: plus means the wind helps, minus means it fights.
+   Turning a route round negates it exactly, so "either way" simply takes the
+   absolute value and remembers whether it has to be ridden backwards. */
+/* The shape of a route never changes, only the wind does, so every piece is
+   reduced once to where it is, where it heads and how long it is. */
+function routeLegs(route) {
+  if (route._legs) return route._legs;
+  const legs = [];
+  for (const tid of route.tracks) {
+    const track = trackById.get(tid);
+    if (!track) continue;
+    const points = latlngs(track, 'lo');
+    for (let i = 0; i + 1 < points.length; i++) {
+      const a = points[i], b = points[i + 1];
+      const length = Math.hypot(b[0] - a[0], (b[1] - a[1]) * 0.57);
+      if (!length) continue;
+      legs.push({ lat: a[0], lon: a[1], course: bearing(a, b), length });
+    }
+  }
+  route._legs = legs;
+  return legs;
+}
+
+function windScore(route) {
+  let sum = 0, total = 0;
+  for (const leg of routeLegs(route)) {
+    const wind = windAt(leg.lat, leg.lon);
+    if (!wind || wind.speed === null) continue;
+    const blowingTo = (wind.from + 180) % 360;
+    const diff = ((blowingTo - leg.course + 540) % 360) - 180;
+    sum += Math.cos(diff * Math.PI / 180) * wind.speed * leg.length;
+    total += leg.length;
+  }
+  return total ? sum / total : 0;
+}
+
+function rankByWind() {
+  const listEl = document.getElementById('tv-wlist');
+  if (!listEl) return;
+  const on = document.getElementById('tv-wbest').checked;
+  listEl.style.display = on ? '' : 'none';
+  if (!on || !weather) return;
+  const bothWays = document.getElementById('tv-wauto').checked;
+  const top = +document.getElementById('tv-wtop').value;
+  const b = map.getBounds();
+  const scored = [];
+  const seen = new Set();   // the sheet holds the same ride more than once
+  for (const route of filtered) {
+    if (!route.bbox) continue;
+    const shape = route.tracks.join('|');
+    if (seen.has(shape)) continue;
+    seen.add(shape);
+    if (route.bbox[0] > b.getNorth() || route.bbox[2] < b.getSouth() ||
+        route.bbox[1] > b.getEast() || route.bbox[3] < b.getWest()) continue;
+    const score = windScore(route);
+    const value = bothWays ? Math.abs(score) : score;
+    scored.push({ route, value, backwards: bothWays && score < 0 });
+  }
+  scored.sort((x, y) => y.value - x.value);
+  const best = scored.slice(0, top);
+  listEl.innerHTML = best.length
+    ? best.map((item, n) => `<li data-i="${item.route.i}" data-back="${item.backwards ? 1 : 0}">`
+        + `<b>+${item.value.toFixed(1)}</b> ${esc(item.route.place || 'route')}`
+        + ` <span>${Math.round(item.route._km)} km${item.backwards ? ' ⇄' : ''}</span></li>`).join('')
+    : '<li class="tv-empty">nothing on screen matches the filters</li>';
+  listEl.querySelectorAll('li[data-i]').forEach(el => {
+    el.onclick = () => {
+      const index = +el.dataset.i;
+      selectRoute(index);
+      routeReversed = el.dataset.back === '1';
+      paintWind(ROUTES[index]);
+      showDetail(ROUTES[index]);
+      const box = ROUTES[index].bbox;
+      map.fitBounds([[box[0], box[1]], [box[2], box[3]]], { padding: [30, 30] });
+    };
+  });
 }
 
 function paintWind(route) {
@@ -236,6 +322,12 @@ weatherPanel.innerHTML = `
     <label><input type="checkbox" data-field="soil"> wet</label>
     <label><input type="checkbox" id="tv-wwind"> wind</label>
   </div>
+  <div class="tv-weather-row">
+    <label><input type="checkbox" id="tv-wbest"> best by wind</label>
+    <input type="range" id="tv-wtop" min="3" max="15" value="5">
+    <label><input type="checkbox" id="tv-wauto" checked> either way</label>
+  </div>
+  <ol class="tv-weather-list" id="tv-wlist" style="display:none"></ol>
   <div class="tv-weather-legend" id="tv-wlegend"></div>
   <div class="tv-weather-status" id="tv-wstatus"></div>`;
 L.DomEvent.disableClickPropagation(weatherPanel);
@@ -282,6 +374,7 @@ function syncHour() {
   document.getElementById('tv-wtime').textContent = `${String(hour).padStart(2, '0')}:00`;
   drawWeather();
   positionSheets();
+  rankByWind();
   if (selected !== null && windShown) paintWind(ROUTES[selected]);
 }
 
@@ -345,6 +438,12 @@ document.getElementById('tv-wwind').onchange = e => {
 };
 weatherPanel.querySelectorAll('input[data-field]').forEach(el => {
   el.onchange = () => { shownFields[el.dataset.field] = el.checked; drawWeather(); };
+});
+
+['tv-wbest', 'tv-wauto', 'tv-wtop'].forEach(id => {
+  const el = document.getElementById(id);
+  el.oninput = rankByWind;
+  el.onchange = rankByWind;
 });
 
 map.on('moveend', () => {

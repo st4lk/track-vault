@@ -34,6 +34,12 @@ A picked route is painted green where the wind pushes and red where it pushes
 back. "Ride it back" flips the direction, since the same road is a different ride
 depending on which end you start from.
 
+"Best by wind" ranks the routes on screen that passed the filters. The number is
+the tailwind component averaged along the route and weighted by the length of
+every piece, in km/h: how much the wind adds or takes away over the whole ride.
+With "either way" a route is also considered backwards - turning it round negates
+the score exactly - and the ones worth riding in reverse are marked.
+
 Data comes from [Open-Meteo](https://open-meteo.com/) - no key, CORS open, so the
 page asks for it directly, a week ahead.
 
