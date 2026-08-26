@@ -34,7 +34,11 @@ A picked route is painted green where the wind pushes and red where it pushes
 back. "Ride it back" flips the direction, since the same road is a different ride
 depending on which end you start from.
 
-"Best by wind" ranks the routes on screen that passed the filters. The number is
+"Best by wind" ranks the routes on screen that passed the filters. A route counts
+as being on screen when at least 60% of its length is: a box drawn around a
+winding route can touch the view while the route itself runs elsewhere, and half
+a route in view is not a ride in this area. Zoomed in close enough that nothing
+fits, the ones merely passing through are listed with the share shown. The number is
 the tailwind component averaged along the route and weighted by the length of
 every piece, in m/s: how much the wind adds or takes away over the whole ride.
 With "either way" a route is also considered backwards - turning it round negates

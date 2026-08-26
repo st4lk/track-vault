@@ -221,6 +221,7 @@ function applyFilters() {
   countsEl.title = `${TRACKS.length} geometries, ${EXTRA.length} unmatched`;
   renderList();
   redraw(true);
+  if (typeof rankByWind === 'function') rankByWind();   // the shortlist follows the filters
 }
 
 /* ---------- drawing ---------- */

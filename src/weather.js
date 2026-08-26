@@ -8,6 +8,8 @@ const WEATHER_FIELDS = ['temperature_2m', 'precipitation', 'wind_speed_10m',
 const GRID_SIDE = 6;            // 36 points is plenty for a regional picture
 const FORECAST_DAYS = 7;
 const REFRESH_DELAY = 800;      // wait until the map really stopped moving
+const IN_VIEW_SHARE = 0.6;      // how much of a route should be on screen to be ranked
+const PARTLY_IN_VIEW = 0.15;    // zoomed in close, take what touches the screen at all
 
 /* Open-Meteo counts locations, variables and days, not requests, so the cheapest
    thing to do is ask rarely and never twice for the same place. Cell centres are
@@ -234,6 +236,18 @@ function routeLegs(route) {
   return legs;
 }
 
+function shareInView(route, bounds) {
+  const legs = routeLegs(route);
+  if (!legs.length) return 0;
+  let inside = 0, total = 0;
+  for (const leg of legs) {
+    total += leg.length;
+    if (leg.lat >= bounds.getSouth() && leg.lat <= bounds.getNorth() &&
+        leg.lon >= bounds.getWest() && leg.lon <= bounds.getEast()) inside += leg.length;
+  }
+  return total ? inside / total : 0;
+}
+
 function windScore(route) {
   let sum = 0, total = 0;
   for (const leg of routeLegs(route)) {
@@ -263,19 +277,29 @@ function rankByWind() {
     const shape = route.tracks.join('|');
     if (seen.has(shape)) continue;
     seen.add(shape);
+    // a box around a winding route can touch the screen while the route itself
+    // runs elsewhere, and half a route in view is not a ride in this area
     if (route.bbox[0] > b.getNorth() || route.bbox[2] < b.getSouth() ||
         route.bbox[1] > b.getEast() || route.bbox[3] < b.getWest()) continue;
+    const share = shareInView(route, b);
+    if (share < PARTLY_IN_VIEW) continue;
     const score = windScore(route);
     const value = bothWays ? Math.abs(score) : score;
-    scored.push({ route, value, backwards: bothWays && score < 0 });
+    scored.push({ route, value, share, backwards: bothWays && score < 0 });
   }
-  scored.sort((x, y) => y.value - x.value);
-  const best = scored.slice(0, top);
+  /* Routes that fit on screen come first; when zoomed in close nothing fits, so
+     the ones merely passing through are offered with their share shown. */
+  let best = scored.filter(item => item.share >= IN_VIEW_SHARE);
+  const partial = best.length === 0;
+  if (partial) best = scored;
+  best.sort((x, y) => y.value - x.value);
+  best = best.slice(0, top);
   listEl.innerHTML = best.length
-    ? best.map((item, n) => `<li data-i="${item.route.i}" data-back="${item.backwards ? 1 : 0}">`
+    ? best.map(item => `<li data-i="${item.route.i}" data-back="${item.backwards ? 1 : 0}">`
         + `<b>+${item.value.toFixed(1)}</b> ${esc(item.route.place || 'route')}`
-        + ` <span>${Math.round(item.route._km)} km${item.backwards ? ' ⇄' : ''}</span></li>`).join('')
-    : '<li class="tv-empty">nothing on screen matches the filters</li>';
+        + ` <span>${Math.round(item.route._km)} km${item.backwards ? ' ⇄' : ''}`
+        + `${partial ? ` · ${Math.round(item.share * 100)}% here` : ''}</span></li>`).join('')
+    : '<li class="tv-empty">no routes on this screen</li>';
   listEl.querySelectorAll('li[data-i]').forEach(el => {
     el.onclick = () => {
       const index = +el.dataset.i;
