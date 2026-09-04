@@ -122,6 +122,8 @@
 #tv .tv-weather-legend { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; color: var(--tv-muted); }
 #tv .tv-weather-legend i { display: inline-block; width: 14px; height: 10px; border-radius: 2px; margin-right: 2px; }
 #tv .tv-weather-note { display: block; margin-top: 4px; line-height: 1.3; }
+#tv .tv-weather-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 2px; font-size: 10px; }
+#tv .tv-weather-bar i { width: 12px; height: 9px; border-radius: 0; margin: 0 1px 0 3px; }
 #tv .tv-weather-list {
   margin: 4px 0 6px; padding: 0; list-style: none; max-height: 150px; overflow-y: auto;
 }
@@ -142,6 +144,7 @@
 #tv .tv-value span { display: flex; align-items: center; justify-content: center; gap: 2px; }
 #tv .tv-value svg, #tv .tv-weather-note svg { width: 10px; height: 10px; fill: currentColor; opacity: .75; }
 #tv .tv-weather-note svg { vertical-align: -1px; }
+#tv .tv-map-muted .leaflet-tile-pane { filter: grayscale(.85) brightness(1.06); }
 #tv .tv-wind {
   display: flex; align-items: center; gap: 2px; font-size: 15px; line-height: 1;
   white-space: nowrap; text-shadow: 0 0 3px #fff, 0 0 3px #fff;

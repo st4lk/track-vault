@@ -3,7 +3,7 @@
    forecast itself: a grid over the current view, every hour for a week ahead.
    Wind, temperature, rain and soil moisture (the closest thing to "how muddy"). */
 const WEATHER_URL = 'https://api.open-meteo.com/v1/forecast';
-const WEATHER_FIELDS = ['temperature_2m', 'precipitation', 'wind_speed_10m',
+const WEATHER_FIELDS = ['temperature_2m', 'precipitation', 'cloud_cover', 'wind_speed_10m',
                         'wind_gusts_10m', 'wind_direction_10m', 'soil_moisture_0_to_7cm'];
 const GRID_SIDE = 6;            // 36 points is plenty for a regional picture
 const FORECAST_DAYS = 7;
@@ -20,9 +20,12 @@ let weatherTimes = null;
 let refreshTimer = null;
 let coolingDown = false;
 let weatherHour = 0;            // index into times
-const shownFields = { temp: false, rain: false, soil: false };
+const shownFields = { temp: false, rain: false, cloud: false, soil: false };
 let windShown = false;
 
+map.createPane('weatherFill');
+map.getPane('weatherFill').style.zIndex = 340;   // blobs first, numbers on top of them
+map.getPane('weatherFill').style.pointerEvents = 'none';
 map.createPane('weatherPane');
 map.getPane('weatherPane').style.zIndex = 350;   // above the map, below every track
 map.getPane('weatherPane').style.pointerEvents = 'none';
@@ -33,6 +36,7 @@ const windLayer = L.layerGroup([], { pane: 'weatherPane' });
 const ICONS = {
   temp: '<svg viewBox="0 0 16 16"><path d="M6.5 9.2V3a1.5 1.5 0 0 1 3 0v6.2a3 3 0 1 1-3 0z"/></svg>',
   rain: '<svg viewBox="0 0 16 16"><path d="M8 1.5c2.6 3.3 4.5 5.6 4.5 7.6a4.5 4.5 0 0 1-9 0c0-2 1.9-4.3 4.5-7.6z"/></svg>',
+  cloud: '<svg viewBox="0 0 16 16"><path d="M4.4 12.5a3.2 3.2 0 0 1-.5-6.4 4.2 4.2 0 0 1 8-1.1 3.2 3.2 0 0 1 .6 6.3z"/></svg>',
   soil: '<svg viewBox="0 0 16 16"><path d="M8 1.2c2.2 2.8 3.8 4.8 3.8 6.5a3.8 3.8 0 0 1-7.6 0c0-1.7 1.6-3.7 3.8-6.5z"/>'
         + '<rect x="1" y="11.4" width="14" height="1.5" rx=".7"/><rect x="1" y="14" width="14" height="1.5" rx=".7"/></svg>',
 };
@@ -115,6 +119,7 @@ function drawWeather() {
   windLookup.clear();
   weatherLayer.clearLayers();
   windLayer.clearLayers();
+  paintFill();
   if (!weather) return;
   const hour = weatherHour;
   const fields = Object.keys(shownFields).filter(f => shownFields[f]);
@@ -123,6 +128,7 @@ function drawWeather() {
       const raw = {
         temp: cell.hourly.temperature_2m[hour],
         rain: cell.hourly.precipitation[hour],
+        cloud: (cell.hourly.cloud_cover || [])[hour],
         soil: cell.hourly.soil_moisture_0_to_7cm[hour],
       }[field];
       const label = formatValue(field, raw);
@@ -165,8 +171,198 @@ function formatValue(field, value) {
   if (value === null || value === undefined) return '';
   if (field === 'temp') return Math.round(value) + '°';
   if (field === 'rain') return value < 0.05 ? '0' : value.toFixed(1);   // dry hours say so
+  if (field === 'cloud') return Math.round(value) + '%';                // sky covered
   if (field === 'soil') return Math.round(value * 100) + '%';           // water by volume
   return '';
+}
+
+/* ---------- rain and clouds as soft blobs ----------
+   Numbers say how much, blobs say where, and a shape is read off the map far
+   faster than a field of digits. The forecast grid is drawn into a small picture
+   which Leaflet stretches over the map, so the smoothing comes for free. */
+const FILL_PX = 480;
+/* Steps, not a gradient: a smooth wash says nothing about where the rain begins,
+   while a band with an edge does. Millimetres in that hour -> colour and how
+   solid it is. Rain maps usually run green to red, but the map underneath is
+   green fields and forest, so this one runs blue to red. */
+const RAIN_STEPS = [
+  [0.1, [86, 176, 244], 0.38],  [0.5, [40, 118, 232], 0.46],
+  [1, [64, 74, 220], 0.52],     [2, [126, 56, 210], 0.58],
+  [4, [196, 44, 156], 0.62],    [8, [226, 44, 62], 0.66],
+  [15, [158, 16, 44], 0.7],     [30, [92, 8, 30], 0.74],
+];
+/* Overcast or clear is a yes-or-no question for a ride, so it gets steps too. */
+const CLOUD_STEPS = [
+  [25, [110, 122, 138], 0.12], [50, [104, 116, 132], 0.2],
+  [75, [98, 110, 126], 0.28],  [90, [92, 104, 120], 0.36],
+];
+let fillOverlay = null;
+
+const mercY = (lat) => Math.log(Math.tan((90 + lat) * Math.PI / 360));
+const mercLat = (y) => Math.atan(Math.exp(y)) * 360 / Math.PI - 90;
+
+/* Cells keep piling up in the cache while the map is panned around, and they all
+   sit on the same lattice, so the picture gets denser the longer it is looked at. */
+function gridValues(field) {
+  if (!weather || !weather.cells.length) return null;
+  const step = weather.cells[0].dy || latticeStep();
+  const b = map.getBounds();
+  const onLattice = (v) => Math.abs(v / step - Math.round(v / step)) < 1e-6;
+  const points = [];
+  for (const [key, hourly] of cellCache) {
+    const [lat, lon] = key.split(',').map(Number);
+    if (!onLattice(lat) || !onLattice(lon)) continue;
+    if (lat < b.getSouth() - step || lat > b.getNorth() + step) continue;
+    if (lon < b.getWest() - step || lon > b.getEast() + step) continue;
+    const series = hourly[field];
+    const value = series ? series[weatherHour] : null;
+    points.push({ lat, lon, value: (value === null || value === undefined) ? null : value });
+  }
+  const lats = [...new Set(points.map(p => p.lat))].sort((x, y) => x - y);
+  const lons = [...new Set(points.map(p => p.lon))].sort((x, y) => x - y);
+  if (lats.length < 2 || lons.length < 2) return null;
+  const rowOf = new Map(lats.map((v, i) => [v, i]));
+  const colOf = new Map(lons.map((v, i) => [v, i]));
+  const values = lats.map(() => lons.map(() => null));
+  for (const p of points) values[rowOf.get(p.lat)][colOf.get(p.lon)] = p.value;
+  fillHoles(values);
+  return { lats, lons, values, step };
+}
+
+/* A rectangle of the lattice is rarely complete; empty knots take the nearest
+   value they have, which keeps the picture from tearing into stripes. */
+function fillHoles(values) {
+  const known = [];
+  values.forEach((row, y) => row.forEach((v, x) => { if (v !== null) known.push([y, x, v]); }));
+  if (!known.length || known.length === values.length * values[0].length) return known.length > 0;
+  values.forEach((row, y) => row.forEach((v, x) => {
+    if (v !== null) return;
+    let best = null, bestDistance = Infinity;
+    for (const [ky, kx, kv] of known) {
+      const d = (ky - y) ** 2 + (kx - x) ** 2;
+      if (d < bestDistance) { bestDistance = d; best = kv; }
+    }
+    row[x] = best;
+  }));
+  return true;
+}
+
+/* where a coordinate falls on an axis that may have uneven gaps */
+function axisPosition(axis, value) {
+  if (value <= axis[0]) return 0;
+  if (value >= axis[axis.length - 1]) return axis.length - 1;
+  let i = 0;
+  while (i + 1 < axis.length && axis[i + 1] < value) i++;
+  return i + (value - axis[i]) / (axis[i + 1] - axis[i]);
+}
+
+function sampleGrid(grid, lat, lon) {
+  const py = axisPosition(grid.lats, lat), px = axisPosition(grid.lons, lon);
+  const y0 = Math.floor(py), x0 = Math.floor(px);
+  const y1 = Math.min(y0 + 1, grid.lats.length - 1), x1 = Math.min(x0 + 1, grid.lons.length - 1);
+  const smooth = (t) => t * t * (3 - 2 * t);   // straight lines leave diamonds
+  const ty = smooth(py - y0), tx = smooth(px - x0);
+  const top = grid.values[y0][x0] * (1 - tx) + grid.values[y0][x1] * tx;
+  const bottom = grid.values[y1][x0] * (1 - tx) + grid.values[y1][x1] * tx;
+  return top * (1 - ty) + bottom * ty;
+}
+
+/* which band a value belongs to; -1 means nothing worth painting */
+function stepOf(steps, value) {
+  if (value === null || value === undefined || value < steps[0][0]) return -1;
+  let found = 0;
+  for (let i = 0; i < steps.length; i++) if (value >= steps[i][0]) found = i;
+  return found;
+}
+
+function stepPaint(steps, index) {
+  if (index < 0) return null;
+  const [, color, alpha] = steps[index];
+  return [color[0], color[1], color[2], alpha];
+}
+
+function over(base, top) {
+  if (!top) return base;
+  const a = top[3] + base[3] * (1 - top[3]);
+  if (!a) return [0, 0, 0, 0];
+  return [0, 1, 2].map(k => (top[k] * top[3] + base[k] * base[3] * (1 - top[3])) / a)
+    .concat(a);
+}
+
+function paintFill() {
+  const rain = shownFields.rain ? gridValues('precipitation') : null;
+  const cloud = shownFields.cloud ? gridValues('cloud_cover') : null;
+  const grid = rain || cloud;
+  // colours over green fields and forest are unreadable, so the map goes grey
+  map.getContainer().classList.toggle('tv-map-muted', !!grid);
+  if (!grid) {
+    if (fillOverlay) { map.removeLayer(fillOverlay); fillOverlay = null; }
+    return;
+  }
+  // a knot speaks for half the way to its neighbour, which is just enough to
+  // reach the edges of the screen the knots were picked from
+  const edge = (axis, first) => (first
+    ? axis[0] - (axis[1] - axis[0]) / 2
+    : axis[axis.length - 1] + (axis[axis.length - 1] - axis[axis.length - 2]) / 2);
+  const south = edge(grid.lats, true), north = edge(grid.lats, false);
+  const west = edge(grid.lons, true), east = edge(grid.lons, false);
+  const canvas = document.createElement('canvas');
+  canvas.width = canvas.height = FILL_PX;
+  const ctx = canvas.getContext('2d');
+  const image = ctx.createImageData(FILL_PX, FILL_PX);
+  const pixels = image.data;
+  const bands = new Uint8Array(FILL_PX * FILL_PX);   // for outlining the steps
+  // Leaflet stretches the picture in mercator pixels, so its rows are laid out the same way
+  const yTop = mercY(north), yBottom = mercY(south);
+  for (let py = 0; py < FILL_PX; py++) {
+    const lat = mercLat(yTop + (yBottom - yTop) * (py + 0.5) / FILL_PX);
+    for (let px = 0; px < FILL_PX; px++) {
+      const lon = west + (east - west) * (px + 0.5) / FILL_PX;
+      const cloudBand = cloud ? stepOf(CLOUD_STEPS, sampleGrid(cloud, lat, lon)) : -1;
+      const rainBand = rain ? stepOf(RAIN_STEPS, sampleGrid(rain, lat, lon)) : -1;
+      let color = over([0, 0, 0, 0], stepPaint(CLOUD_STEPS, cloudBand));
+      color = over(color, stepPaint(RAIN_STEPS, rainBand));
+      const at = py * FILL_PX + px;
+      bands[at] = (cloudBand + 1) * 16 + (rainBand + 1);
+      pixels[at * 4] = color[0];
+      pixels[at * 4 + 1] = color[1];
+      pixels[at * 4 + 2] = color[2];
+      pixels[at * 4 + 3] = Math.round(color[3] * 255);
+    }
+  }
+  outlineBands(pixels, bands);
+  ctx.putImageData(image, 0, 0);
+  const url = canvas.toDataURL();
+  const bounds = L.latLngBounds([south, west], [north, east]);
+  if (fillOverlay) {
+    fillOverlay.setBounds(bounds);
+    fillOverlay.setUrl(url);
+  } else {
+    fillOverlay = L.imageOverlay(url, bounds, {
+      interactive: false, pane: 'weatherFill', className: 'tv-fill',
+    }).addTo(map);
+  }
+}
+
+/* An edge is what makes a blob readable: where one band meets another the pixel
+   is darkened, so every step gets drawn round without any contour maths. */
+function outlineBands(pixels, bands) {
+  for (let py = 0; py < FILL_PX; py++) {
+    for (let px = 0; px < FILL_PX; px++) {
+      const at = py * FILL_PX + px;
+      const band = bands[at];
+      const right = px + 1 < FILL_PX ? bands[at + 1] : band;
+      const below = py + 1 < FILL_PX ? bands[at + FILL_PX] : band;
+      if (band === right && band === below) continue;
+      const strong = Math.max(band, right, below);   // the wetter side owns the line
+      if (!(strong % 16)) continue;                  // do not outline the cloud steps
+      const at4 = at * 4;
+      pixels[at4] = Math.round(pixels[at4] * 0.55);
+      pixels[at4 + 1] = Math.round(pixels[at4 + 1] * 0.55);
+      pixels[at4 + 2] = Math.round(pixels[at4 + 2] * 0.55);
+      pixels[at4 + 3] = Math.max(pixels[at4 + 3], 165);
+    }
+  }
 }
 
 /* ---------- head or tail wind along a route ---------- */
@@ -343,6 +539,7 @@ weatherPanel.innerHTML = `
   <div class="tv-weather-row">
     <label><input type="checkbox" data-field="temp"> temp</label>
     <label><input type="checkbox" data-field="rain"> rain</label>
+    <label><input type="checkbox" data-field="cloud"> clouds</label>
     <label><input type="checkbox" data-field="soil"> wet</label>
     <label><input type="checkbox" id="tv-wwind"> wind</label>
   </div>
@@ -407,7 +604,8 @@ function updateLegend() {
   if (!el) return;
   const scales = {
     temp: 'degrees at 2 m',
-    rain: 'millimetres in that hour',
+    rain: 'millimetres in that hour, painted where it falls:',
+    cloud: 'how much of the sky is covered, the greyer the darker the day',
     soil: 'water in the top 7 cm of soil, per cent by volume: bigger means muddier',
   };
   const wind = windShown
@@ -418,7 +616,13 @@ function updateLegend() {
     : '';
   const note = Object.keys(shownFields).filter(f => shownFields[f])
     .map(f => `<span class="tv-weather-note">${ICONS[f]} ${scales[f]}</span>`).join('');
-  el.innerHTML = note + wind;
+  const bar = shownFields.rain
+    ? '<span class="tv-weather-note tv-weather-bar">'
+      + RAIN_STEPS.map(([mm, color]) =>
+          `<i style="background:rgb(${color.join(',')})"></i>${mm}`).join('')
+      + '</span>'
+    : '';
+  el.innerHTML = note + bar + wind;
 }
 
 /* Hiding the panel must not switch the weather off: on a phone the panel covers
